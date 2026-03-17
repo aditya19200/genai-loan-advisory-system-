@@ -1,0 +1,38 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 810 >> stream
+BT
+/F1 12 Tf
+72 770 Td
+(XAI Finance Platform - System Design System architecture: FastAPI handles prediction APIs,) Tj
+0 -16 Td
+(Streamlit handles visualization, SQLite stores platform state. Module responsibilities:) Tj
+0 -16 Td
+(data processing, model training, fairness evaluation, explainability, monitoring, and) Tj
+0 -16 Td
+(audit logging are separated by package. Explainability methods: SHAP supports global and) Tj
+0 -16 Td
+(local attribution, LIME supports local surrogate explanations, and ELI5 provides readable) Tj
+0 -16 Td
+(summaries. Fairness checks: demographic parity difference and equal opportunity difference) Tj
+0 -16 Td
+(are evaluated by sex and age group. Monitoring: the platform tracks prediction latency,) Tj
+0 -16 Td
+(explanation latency, and SHAP versus LIME feature overlap.) Tj
+ET
+endstream endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001102 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+1172
+%%EOF

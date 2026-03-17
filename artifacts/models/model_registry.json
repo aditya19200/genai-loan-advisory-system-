@@ -1,0 +1,76 @@
+{
+  "models": [
+    {
+      "name": "xgboost",
+      "version": "20260314070753",
+      "artifact_path": "C:\\Users\\rithv\\WORK\\PES\\Capstone\\xai-finance-platform\\artifacts\\models\\xgboost_20260314070753.joblib",
+      "metrics": {
+        "accuracy": 0.97,
+        "precision": 0.9882352941176471,
+        "recall": 0.9438202247191011,
+        "f1_score": 0.9655172413793104,
+        "roc_auc": 0.9955461079056585,
+        "fairness": {
+          "Sex": {
+            "demographic_parity_difference": 0.033333333333333326,
+            "equal_opportunity_difference": 0.046132971506105847
+          },
+          "age_group": {
+            "demographic_parity_difference": 0.10563380281690143,
+            "equal_opportunity_difference": 0.08196721311475408
+          }
+        }
+      },
+      "rank": 1,
+      "registered_at": "2026-03-14T07:07:53.206423+00:00"
+    },
+    {
+      "name": "random_forest",
+      "version": "20260314070751",
+      "artifact_path": "C:\\Users\\rithv\\WORK\\PES\\Capstone\\xai-finance-platform\\artifacts\\models\\random_forest_20260314070751.joblib",
+      "metrics": {
+        "accuracy": 0.945,
+        "precision": 0.9875,
+        "recall": 0.8876404494382022,
+        "f1_score": 0.9349112426035503,
+        "roc_auc": 0.9876505719202349,
+        "fairness": {
+          "Sex": {
+            "demographic_parity_difference": 0.026666666666666672,
+            "equal_opportunity_difference": 0.03571428571428571
+          },
+          "age_group": {
+            "demographic_parity_difference": 0.11656143759106363,
+            "equal_opportunity_difference": 0.11182669789227173
+          }
+        }
+      },
+      "rank": 2,
+      "registered_at": "2026-03-14T07:07:53.206423+00:00"
+    },
+    {
+      "name": "logistic_regression",
+      "version": "20260314070749",
+      "artifact_path": "C:\\Users\\rithv\\WORK\\PES\\Capstone\\xai-finance-platform\\artifacts\\models\\logistic_regression_20260314070749.joblib",
+      "metrics": {
+        "accuracy": 0.9,
+        "precision": 0.8631578947368421,
+        "recall": 0.9213483146067416,
+        "f1_score": 0.8913043478260869,
+        "roc_auc": 0.9671019333940682,
+        "fairness": {
+          "Sex": {
+            "demographic_parity_difference": 0.006666666666666654,
+            "equal_opportunity_difference": 0.03442340791738381
+          },
+          "age_group": {
+            "demographic_parity_difference": 0.08377853326857693,
+            "equal_opportunity_difference": 0.11475409836065575
+          }
+        }
+      },
+      "rank": 3,
+      "registered_at": "2026-03-14T07:07:53.206423+00:00"
+    }
+  ]
+}

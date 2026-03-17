@@ -1,0 +1,5 @@
+uvicorn backend_services.api:app --reload --app-dir .
+
+streamlit run frontend/streamlit_app.py
+
+uvicorn alibi_service.api:app --host 127.0.0.1 --port 8001 --reload --app-dir .
