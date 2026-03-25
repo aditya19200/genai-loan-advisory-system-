@@ -1,0 +1,27 @@
+{
+  "model_name": "random_forest",
+  "version": "20260314070751",
+  "best_params": {
+    "classifier__max_depth": 8,
+    "classifier__min_samples_split": 2,
+    "classifier__n_estimators": 150
+  },
+  "cv_best_score": 0.978251089558575,
+  "metrics": {
+    "accuracy": 0.945,
+    "precision": 0.9875,
+    "recall": 0.8876404494382022,
+    "f1_score": 0.9349112426035503,
+    "roc_auc": 0.9876505719202349,
+    "fairness": {
+      "Sex": {
+        "demographic_parity_difference": 0.026666666666666672,
+        "equal_opportunity_difference": 0.03571428571428571
+      },
+      "age_group": {
+        "demographic_parity_difference": 0.11656143759106363,
+        "equal_opportunity_difference": 0.11182669789227173
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "model_name": "xgboost",
+  "version": "20260314070753",
+  "best_params": {
+    "classifier__learning_rate": 0.08,
+    "classifier__max_depth": 3,
+    "classifier__n_estimators": 150
+  },
+  "cv_best_score": 0.9938280419093839,
+  "metrics": {
+    "accuracy": 0.97,
+    "precision": 0.9882352941176471,
+    "recall": 0.9438202247191011,
+    "f1_score": 0.9655172413793104,
+    "roc_auc": 0.9955461079056585,
+    "fairness": {
+      "Sex": {
+        "demographic_parity_difference": 0.033333333333333326,
+        "equal_opportunity_difference": 0.046132971506105847
+      },
+      "age_group": {
+        "demographic_parity_difference": 0.10563380281690143,
+        "equal_opportunity_difference": 0.08196721311475408
+      }
+    }
+  }
+}

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ensure_directories
-from app.schemas import ExplanationResponse, FeedbackInput, PredictionInput, PredictionResponse
+from app.schemas import ChatMessage, ChatRequest, ChatResponse, ExplanationResponse, FeedbackInput, PredictionInput, PredictionResponse
+from backend_services.llm_service import chat_with_customer
 from backend_services.pipeline import PredictionService
 from database.sqlite_db import DatabaseManager
 
@@ -15,7 +15,7 @@ from database.sqlite_db import DatabaseManager
 ensure_directories()
 service = PredictionService()
 db = DatabaseManager()
-app = FastAPI(title="XAI Finance Platform", version="0.1.0")
+app = FastAPI(title="AI-Based Loan Decision System", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,16 +39,65 @@ def model_comparison():
 @app.post("/predict", response_model=PredictionResponse)
 def predict(payload: PredictionInput, background_tasks: BackgroundTasks) -> PredictionResponse:
     result = service.predict(payload)
-    background_tasks.add_task(service.generate_explanation, result["request_id"])
+    if result["explain_available"]:
+        background_tasks.add_task(service.generate_explanation, result["request_id"])
     return PredictionResponse(
         request_id=result["request_id"],
         model_name=result["model_name"],
         model_version=result["model_version"],
-        prediction=result["prediction"],
-        probability=result["probability"],
-        explanation_status="pending",
+        decision=result["decision"],
+        risk_score=result["risk_score"],
+        explain_available=result["explain_available"],
+        explanation_status=result["explanation_status"],
         created_at=datetime.fromisoformat(result["created_at"]),
     )
+
+
+@app.get("/predictions")
+def list_predictions():
+    rows = db.fetch_all("predictions")
+    return [
+        {
+            "request_id": row["request_id"],
+            "decision": row.get("decision"),
+            "risk_score": row.get("probability"),
+            "created_at": row.get("created_at"),
+        }
+        for row in rows
+    ]
+
+
+@app.get("/predictions/{request_id}")
+def get_prediction(request_id: str):
+    row = db.fetch_one("predictions", request_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Prediction request not found")
+    return {
+        "request_id": row["request_id"],
+        "model_name": row["model_name"],
+        "model_version": row["model_version"],
+        "decision": row.get("decision"),
+        "risk_score": row.get("probability"),
+        "input_payload": __import__("json").loads(row["input_payload"]),
+        "created_at": row["created_at"],
+    }
+
+
+@app.post("/explain", response_model=ExplanationResponse)
+def explain(payload: PredictionInput) -> ExplanationResponse:
+    result = service.explain_input(payload)
+    return ExplanationResponse(**result)
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(payload: ChatRequest) -> ChatResponse:
+    chat_result = chat_with_customer(
+        message=payload.message,
+        history=[item.model_dump() for item in payload.history],
+        applicant_context=payload.applicant_context,
+    )
+    updated_history = [*payload.history, ChatMessage(role="user", content=payload.message), ChatMessage(role="assistant", content=chat_result["reply"])]
+    return ChatResponse(reply=chat_result["reply"], source=chat_result["source"], history=updated_history)
 
 
 @app.get("/explanations/{request_id}", response_model=ExplanationResponse)
@@ -56,17 +105,7 @@ def get_explanation(request_id: str) -> ExplanationResponse:
     row = db.fetch_one("explanations", request_id)
     if not row:
         raise HTTPException(status_code=404, detail="Explanation request not found")
-    return ExplanationResponse(
-        request_id=request_id,
-        status=row["status"],
-        shap_global=json.loads(row["shap_global"] or "[]"),
-        shap_local=json.loads(row["shap_local"] or "[]"),
-        lime_local=json.loads(row["lime_local"] or "[]"),
-        rule_based_explanation=json.loads(row["rule_based_explanation"] or "{}"),
-        eli5_summary=row["eli5_summary"] or "",
-        stability_score=row["stability_score"],
-        generated_at=datetime.fromisoformat(row["generated_at"]) if row["generated_at"] else None,
-    )
+    return ExplanationResponse(**service._compose_explanation_response(request_id, row))
 
 
 @app.post("/explanations/{request_id}/regenerate")
@@ -78,40 +117,15 @@ def regenerate_explanation(request_id: str, background_tasks: BackgroundTasks):
         conn.execute(
             """
             UPDATE explanations
-            SET status = ?, shap_global = NULL, shap_local = NULL, lime_local = NULL,
-                rule_based_explanation = NULL, eli5_summary = NULL, stability_score = NULL,
-                generation_time_ms = NULL, generated_at = NULL
+            SET status = ?, decision = NULL, risk_score = NULL, shap_global = NULL, shap_local = NULL,
+                sentiment = NULL, explanation_text = NULL, advisory = NULL, counter_offer = NULL, reports = NULL,
+                llm_response = NULL, rag_context = NULL, generation_time_ms = NULL, generated_at = NULL
             WHERE request_id = ?
             """,
             ("pending", request_id),
         )
-    background_tasks.add_task(service.generate_explanation, request_id)
+    background_tasks.add_task(service.generate_explanation, request_id, True)
     return {"status": "queued", "request_id": request_id}
-
-
-@app.post("/counterfactuals/{request_id}/request")
-def request_counterfactual(request_id: str, background_tasks: BackgroundTasks):
-    row = db.fetch_one("predictions", request_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Prediction request not found")
-    db.upsert_counterfactual(request_id, status="queued")
-    background_tasks.add_task(service.request_counterfactual, request_id)
-    return {"status": "queued", "request_id": request_id}
-
-
-@app.get("/counterfactuals/{request_id}")
-def get_counterfactual(request_id: str):
-    row = db.fetch_one("counterfactuals", request_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Counterfactual request not found")
-    return {
-        "request_id": request_id,
-        "status": row["status"],
-        "result": json.loads(row["result"] or "{}"),
-        "error_message": row["error_message"],
-        "generation_time_ms": row["generation_time_ms"],
-        "generated_at": datetime.fromisoformat(row["generated_at"]) if row["generated_at"] else None,
-    }
 
 
 @app.get("/fairness")

@@ -15,6 +15,8 @@ from app.config import DATASET_PATH, TRAIN_TEST_RANDOM_STATE
 
 
 TARGET_COLUMN = "credit_risk"
+MODEL_FEATURES = ["age", "income", "credit_score", "dti", "employment_length", "existing_loans"]
+ADVISORY_FEATURES = ["loan_amount", "tenure_months"]
 SENSITIVE_ATTRIBUTES = ["Sex", "age_group"]
 
 
@@ -45,36 +47,68 @@ class DataProcessor:
             df = df.drop(columns=unnamed)
         df = df.replace({"NA": np.nan})
         df.columns = [col.strip().replace(" ", "_").lower() for col in df.columns]
-        df["saving_accounts"] = df["saving_accounts"].fillna("unknown")
-        df["checking_account"] = df["checking_account"].fillna("unknown")
-        df["sex"] = df["sex"].str.lower()
-        df["housing"] = df["housing"].str.lower()
-        df["purpose"] = df["purpose"].str.lower()
         return self.engineer_features(df)
 
     def engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
-        df["monthly_burden"] = df["credit_amount"] / df["duration"].clip(lower=1)
-        df["credit_to_age"] = df["credit_amount"] / df["age"].clip(lower=18)
+        df["saving_accounts"] = df["saving_accounts"].fillna("unknown").str.lower()
+        df["checking_account"] = df["checking_account"].fillna("unknown").str.lower()
+        df["sex"] = df["sex"].str.lower()
+        df["housing"] = df["housing"].str.lower()
+        df["purpose"] = df["purpose"].str.lower()
         df["age_group"] = np.where(df["age"] >= 30, "age_30_plus", "under_30")
-        df["has_savings_buffer"] = df["saving_accounts"].isin(["moderate", "rich", "quite rich"]).astype(int)
-        df["has_checking_buffer"] = df["checking_account"].isin(["moderate", "rich"]).astype(int)
-        df["long_duration"] = (df["duration"] >= 24).astype(int)
+        savings_score = df["saving_accounts"].map(
+            {"unknown": 0.2, "little": 0.4, "moderate": 0.8, "rich": 1.4, "quite rich": 1.8}
+        ).fillna(0.2)
+        checking_score = df["checking_account"].map(
+            {"unknown": 0.2, "little": 0.6, "moderate": 1.0, "rich": 1.4}
+        ).fillna(0.2)
+        housing_score = df["housing"].map({"free": -15.0, "rent": 0.0, "own": 20.0}).fillna(0.0)
+
+        income = (
+            df["credit_amount"] * (2.2 + df["job"] * 0.45)
+            + df["age"] * 35
+            + savings_score * 400
+        ).clip(lower=1200)
+        credit_score = (
+            550
+            + df["age"] * 1.2
+            + df["job"] * 25
+            + savings_score * 60
+            + checking_score * 40
+            + housing_score
+            - df["duration"] * 1.5
+            - df["credit_amount"] / 120
+        ).clip(lower=300, upper=850)
+        dti = (df["credit_amount"] / income).clip(lower=0.01, upper=1.5)
+        employment_length = (df["age"] - 18).clip(lower=0, upper=45)
+        existing_loans = (
+            (df["duration"] / 24).round()
+            + (df["credit_amount"] >= 5000).astype(int)
+            + df["checking_account"].isin({"unknown", "little"}).astype(int)
+        ).astype(float)
+
+        df["income"] = income.round(2)
+        df["credit_score"] = credit_score.round(0)
+        df["dti"] = dti.round(4)
+        df["employment_length"] = employment_length.round(1)
+        df["existing_loans"] = existing_loans
+        df["loan_amount"] = df["credit_amount"].astype(float)
+        df["tenure_months"] = df["duration"].astype(int)
         df[TARGET_COLUMN] = self._derive_target(df)
         return df
 
     def _derive_target(self, df: pd.DataFrame) -> pd.Series:
-        burden_score = (df["monthly_burden"] > df["monthly_burden"].median()).astype(int)
-        amount_score = (df["credit_amount"] > df["credit_amount"].median()).astype(int)
-        duration_score = (df["duration"] > df["duration"].median()).astype(int)
-        account_risk = (
-            (df["saving_accounts"].isin(["little", "unknown"])).astype(int)
-            + (df["checking_account"].isin(["little", "unknown"])).astype(int)
+        risk_score = (
+            df["dti"] * 4.0
+            + (df["tenure_months"] / 12) * 0.7
+            + (df["loan_amount"] / 1000) * 0.25
+            + (700 - df["credit_score"]) / 75
+            + df["checking_account"].eq("little").astype(int) * 0.7
+            + df["saving_accounts"].eq("little").astype(int) * 0.5
         )
-        housing_risk = (df["housing"] == "rent").astype(int)
-        purpose_risk = df["purpose"].isin(["education", "business", "vacation/others"]).astype(int)
-        score = burden_score + amount_score + duration_score + account_risk + housing_risk + purpose_risk
-        return (score >= 4).astype(int)
+        threshold = np.percentile(risk_score, 70)
+        return (risk_score >= threshold).astype(int)
 
     def build_preprocessor(self, X: pd.DataFrame) -> ColumnTransformer:
         categorical_features = X.select_dtypes(include=["object"]).columns.tolist()
@@ -100,7 +134,7 @@ class DataProcessor:
 
     def prepare_data(self, test_size: float = 0.2) -> PreparedData:
         df = self.load_data()
-        X = df.drop(columns=[TARGET_COLUMN])
+        X = df[MODEL_FEATURES]
         y = df[TARGET_COLUMN]
         sensitive = df[["sex", "age_group"]].rename(columns={"sex": "Sex"})
         X_train, X_test, y_train, y_test, sensitive_train, sensitive_test = train_test_split(
@@ -120,22 +154,17 @@ class DataProcessor:
             sensitive_train=sensitive_train,
             sensitive_test=sensitive_test,
             preprocessor=preprocessor,
-            feature_columns=X_train.columns.tolist(),
+            feature_columns=MODEL_FEATURES.copy(),
         )
 
     @staticmethod
     def api_payload_to_frame(payload: dict[str, Any]) -> pd.DataFrame:
-        df = pd.DataFrame([payload])
-        df.columns = [col.strip().replace(" ", "_").lower() for col in df.columns]
-        df["saving_accounts"] = df["saving_accounts"].fillna("unknown")
-        df["checking_account"] = df["checking_account"].fillna("unknown")
-        df["sex"] = df["sex"].str.lower()
-        df["housing"] = df["housing"].str.lower()
-        df["purpose"] = df["purpose"].str.lower()
-        df["monthly_burden"] = df["credit_amount"] / df["duration"].clip(lower=1)
-        df["credit_to_age"] = df["credit_amount"] / df["age"].clip(lower=18)
-        df["age_group"] = np.where(df["age"] >= 30, "age_30_plus", "under_30")
-        df["has_savings_buffer"] = df["saving_accounts"].isin(["moderate", "rich", "quite rich"]).astype(int)
-        df["has_checking_buffer"] = df["checking_account"].isin(["moderate", "rich"]).astype(int)
-        df["long_duration"] = (df["duration"] >= 24).astype(int)
-        return df
+        normalized = {
+            "age": int(payload["age"]),
+            "income": float(payload["income"]),
+            "credit_score": float(payload["credit_score"]),
+            "dti": float(payload["dti"]),
+            "employment_length": float(payload["employment_length"]),
+            "existing_loans": float(payload["existing_loans"]),
+        }
+        return pd.DataFrame([normalized], columns=MODEL_FEATURES)

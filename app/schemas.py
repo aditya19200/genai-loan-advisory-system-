@@ -8,22 +8,24 @@ from pydantic import BaseModel, Field
 
 class PredictionInput(BaseModel):
     age: int = Field(..., ge=18, le=100)
-    sex: str
-    job: int = Field(..., ge=0, le=3)
-    housing: str
-    saving_accounts: str = "unknown"
-    checking_account: str = "unknown"
-    credit_amount: float = Field(..., gt=0)
-    duration: int = Field(..., gt=0)
-    purpose: str
+    income: float = Field(..., gt=0)
+    credit_score: float = Field(..., ge=300, le=850)
+    dti: float = Field(..., ge=0, le=2)
+    employment_length: float = Field(..., ge=0)
+    existing_loans: float = Field(..., ge=0)
+    loan_amount: float | None = Field(default=None, gt=0)
+    tenure_months: int | None = Field(default=None, gt=0)
+    ask_explain: bool = False
+    user_text: str | None = None
 
 
 class PredictionResponse(BaseModel):
     request_id: str
     model_name: str
     model_version: str
-    prediction: int
-    probability: float
+    decision: str
+    risk_score: float
+    explain_available: bool
     explanation_status: str
     created_at: datetime
 
@@ -31,13 +33,35 @@ class PredictionResponse(BaseModel):
 class ExplanationResponse(BaseModel):
     request_id: str
     status: str
+    decision: str | None = None
+    risk_score: float | None = None
     shap_global: list[dict[str, Any]] = Field(default_factory=list)
     shap_local: list[dict[str, Any]] = Field(default_factory=list)
-    lime_local: list[dict[str, Any]] = Field(default_factory=list)
-    rule_based_explanation: dict[str, Any] = Field(default_factory=dict)
-    eli5_summary: str = ""
-    stability_score: float | None = None
+    sentiment: str = "neutral"
+    explanation_text: str = ""
+    advisory: str = ""
+    counter_offer: str | None = None
+    reports: list[dict[str, Any]] = Field(default_factory=list)
+    llm_response: dict[str, Any] = Field(default_factory=dict)
+    rag_context: list[dict[str, Any]] = Field(default_factory=list)
     generated_at: datetime | None = None
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1)
+    history: list[ChatMessage] = Field(default_factory=list)
+    applicant_context: dict[str, Any] = Field(default_factory=dict)
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    source: str
+    history: list[ChatMessage] = Field(default_factory=list)
 
 
 class FeedbackInput(BaseModel):

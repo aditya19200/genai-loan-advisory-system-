@@ -15,17 +15,19 @@ REPORTS_DIR = BASE_DIR / "reports"
 DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "database" / "xai_finance.db")))
 DATASET_PATH = DATA_DIR / "german_credit.csv"
 MODEL_REGISTRY_PATH = MODELS_DIR / "model_registry.json"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 def normalize_service_url(value: str) -> str:
     return value if value.startswith(("http://", "https://")) else f"http://{value}"
 
 
-ALIBI_SERVICE_URL = normalize_service_url(os.getenv("ALIBI_SERVICE_URL", "http://localhost:8001"))
-
 TOP_K_EXPLANATION_FEATURES = 5
 BACKGROUND_SAMPLE_SIZE = 50
 TRAIN_TEST_RANDOM_STATE = 42
-TOP_MODEL_COUNT = 3
+TOP_MODEL_COUNT = 1
+LOWER_BORDERLINE_THRESHOLD = 0.40
+UPPER_BORDERLINE_THRESHOLD = 0.60
 
 
 def ensure_directories() -> None:

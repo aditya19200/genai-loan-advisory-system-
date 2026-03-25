@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
 
@@ -38,25 +37,7 @@ class ModelTrainer:
         self.registry = ModelRegistry()
 
     def _candidate_configs(self) -> list[tuple[str, Any, dict[str, list[Any]]]]:
-        configs: list[tuple[str, Any, dict[str, list[Any]]]] = [
-            (
-                "logistic_regression",
-                LogisticRegression(max_iter=1000, solver="liblinear"),
-                {
-                    "classifier__C": [0.1, 1.0, 5.0],
-                    "classifier__class_weight": [None, "balanced"],
-                },
-            ),
-            (
-                "random_forest",
-                RandomForestClassifier(random_state=42),
-                {
-                    "classifier__n_estimators": [150, 250],
-                    "classifier__max_depth": [4, 8, None],
-                    "classifier__min_samples_split": [2, 5],
-                },
-            ),
-        ]
+        configs: list[tuple[str, Any, dict[str, list[Any]]]] = []
         if XGBClassifier is not None:
             configs.append(
                 (
@@ -64,14 +45,25 @@ class ModelTrainer:
                     XGBClassifier(
                         eval_metric="logloss",
                         random_state=42,
-                        n_estimators=150,
+                        n_estimators=180,
                         learning_rate=0.08,
                         max_depth=4,
                     ),
                     {
-                        "classifier__n_estimators": [100, 150],
+                        "classifier__n_estimators": [150, 180],
                         "classifier__max_depth": [3, 4, 5],
                         "classifier__learning_rate": [0.05, 0.08],
+                    },
+                )
+            )
+        else:
+            configs.append(
+                (
+                    "gradient_boosting",
+                    HistGradientBoostingClassifier(random_state=42),
+                    {
+                        "classifier__learning_rate": [0.05, 0.08],
+                        "classifier__max_depth": [3, 5],
                     },
                 )
             )

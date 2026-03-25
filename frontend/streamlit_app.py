@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import os
-import re
 
 import altair as alt
+import json
 import pandas as pd
 import requests
 import streamlit as st
-
 
 
 def normalize_service_url(value: str) -> str:
@@ -17,19 +16,20 @@ def normalize_service_url(value: str) -> str:
 
 API_BASE = normalize_service_url(os.getenv("API_BASE", "http://localhost:8000"))
 
-st.set_page_config(page_title="XAI Finance Platform", layout="wide")
-st.title("Explainable AI Financial Decision Platform")
+st.set_page_config(page_title="AI-Based Loan Decision System", layout="wide")
+st.title("AI-Based Loan Decision System")
 
 page = st.sidebar.radio(
     "Pages",
     [
         "Model comparison",
-        "Prediction input",
-        "Explainability visualization",
+        "Loan assessment",
+        "Explainability",
+        "Customer Chat",
         "Fairness metrics",
         "Monitoring metrics",
         "Audit logs",
-        "Explanation feedback rating",
+        "Feedback",
     ],
 )
 
@@ -39,7 +39,7 @@ def show_backend_help(error: Exception) -> None:
     st.caption(str(error))
     st.info(
         "Start the API in a separate terminal with `python -m uvicorn backend_services.api:app --reload --app-dir .` "
-        "from the project root. If it crashes during import, recreate the environment with Python 3.11 or 3.12."
+        "from the project root."
     )
 
 
@@ -55,7 +55,7 @@ def api_get(path: str):
 
 def api_post(path: str, payload: dict):
     try:
-        response = requests.post(f"{API_BASE}{path}", json=payload, timeout=30)
+        response = requests.post(f"{API_BASE}{path}", json=payload, timeout=60)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as exc:
@@ -63,8 +63,60 @@ def api_post(path: str, payload: dict):
         st.stop()
 
 
-def prediction_label(prediction: int) -> str:
-    return "Denied" if prediction == 1 else "Accepted"
+def format_timestamp(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone()
+        return parsed.strftime("%d %b %Y, %I:%M:%S %p")
+    except ValueError:
+        return value
+
+
+def humanize_feature_label(label: str) -> str:
+    return label.replace("num__", "").replace("cat__", "").replace("_", " ").title()
+
+
+def render_horizontal_explanation_chart(title: str, items: list[dict]) -> None:
+    frame = pd.DataFrame(items).copy()
+    st.write(title)
+    if frame.empty:
+        st.info("No explanation data available.")
+        return
+    frame["feature"] = frame["feature"].map(humanize_feature_label)
+    frame["importance"] = frame["importance"].astype(float)
+    frame = frame.sort_values("importance", ascending=True)
+    chart = (
+        alt.Chart(frame)
+        .mark_bar()
+        .encode(
+            x=alt.X("importance:Q", title="Impact"),
+            y=alt.Y("feature:N", sort=None, title="Feature"),
+            color=alt.condition(alt.datum.importance >= 0, alt.value("#e76f51"), alt.value("#2a9d8f")),
+            tooltip=["feature", alt.Tooltip("importance:Q", format=".3f")],
+        )
+        .properties(height=260)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def render_reports(reports: list[dict]) -> None:
+    st.write("Decision Reports")
+    if not reports:
+        st.info("No report sections available.")
+        return
+    for report in reports:
+        title = report.get("title", "Report")
+        audience = report.get("audience", "General")
+        summary = report.get("summary", "")
+        bullets = report.get("bullets", [])
+        with st.expander(f"{title} | Audience: {audience}", expanded=True):
+            if summary:
+                st.write(summary)
+            for bullet in bullets:
+                st.markdown(f"- {bullet}")
 
 
 def format_model_comparison(data: list[dict]) -> pd.DataFrame:
@@ -83,363 +135,294 @@ def format_model_comparison(data: list[dict]) -> pd.DataFrame:
                 "F1": round(record.get("metrics", {}).get("f1_score", 0.0), 3),
                 "ROC-AUC": round(record.get("metrics", {}).get("roc_auc", 0.0), 3),
                 "Sex DP Diff": round(sex_fairness.get("demographic_parity_difference", 0.0), 3),
-                "Sex EO Diff": round(sex_fairness.get("equal_opportunity_difference", 0.0), 3),
                 "Age DP Diff": round(age_fairness.get("demographic_parity_difference", 0.0), 3),
-                "Age EO Diff": round(age_fairness.get("equal_opportunity_difference", 0.0), 3),
             }
         )
     return pd.DataFrame(rows)
 
 
-def fairness_status(value: float) -> str:
-    if value <= 0.05:
-        return "Good"
-    if value <= 0.10:
-        return "Watch"
-    return "Needs review"
+def format_request_option(row: dict) -> str:
+    request_id = row.get("request_id", "")
+    decision = row.get("decision") or "Unknown"
+    risk_score = row.get("risk_score")
+    created_at = format_timestamp(row.get("created_at", ""))
+    risk_text = f"{float(risk_score):.3f}" if risk_score is not None else "N/A"
+    return f"{request_id} | {decision} | Risk {risk_text} | {created_at}"
 
 
-def format_fairness_metrics(rows: list[dict]) -> pd.DataFrame:
-    formatted_rows = []
-    for row in rows:
-        fairness = row.get("fairness", {})
-        sex = fairness.get("Sex", {})
-        age = fairness.get("age_group", {})
-        worst_gap = max(
-            float(sex.get("demographic_parity_difference", 0.0)),
-            float(sex.get("equal_opportunity_difference", 0.0)),
-            float(age.get("demographic_parity_difference", 0.0)),
-            float(age.get("equal_opportunity_difference", 0.0)),
-        )
-        formatted_rows.append(
-            {
-                "Model": row.get("model_name", "").replace("_", " ").title(),
-                "Version": row.get("model_version", ""),
-                "Sex Selection Gap": round(float(sex.get("demographic_parity_difference", 0.0)), 3),
-                "Sex Opportunity Gap": round(float(sex.get("equal_opportunity_difference", 0.0)), 3),
-                "Age Selection Gap": round(float(age.get("demographic_parity_difference", 0.0)), 3),
-                "Age Opportunity Gap": round(float(age.get("equal_opportunity_difference", 0.0)), 3),
-                "Overall Status": fairness_status(worst_gap),
-            }
-        )
-    return pd.DataFrame(formatted_rows)
-
-
-def format_timestamp(value: str) -> str:
-    if not value:
-        return ""
-    try:
-        parsed = datetime.fromisoformat(value)
-        if parsed.tzinfo is not None:
-            parsed = parsed.astimezone()
-        return parsed.strftime("%d %b %Y, %I:%M:%S %p")
-    except ValueError:
+def parse_json_field(value):
+    if isinstance(value, dict):
         return value
-
-
-def format_audit_logs(audit_rows: list[dict], feedback_rows: list[dict]) -> pd.DataFrame:
-    feedback_map = {}
-    for row in feedback_rows:
-        request_id = row.get("request_id")
-        rating = row.get("rating")
-        if request_id:
-            feedback_map[request_id] = rating
-
-    formatted_rows = []
-    for row in audit_rows:
-        rating = feedback_map.get(row.get("request_id"))
-        formatted_rows.append(
-            {
-                "Feedback": feedback_stars(rating),
-                "Request ID": row.get("request_id", ""),
-                "Model Version": row.get("model_version", ""),
-                "Audit Hash": row.get("audit_hash", ""),
-                "Timestamp": format_timestamp(row.get("timestamp", "")),
-            }
-        )
-    return pd.DataFrame(formatted_rows)
-
-
-def format_feedback_history(feedback_rows: list[dict]) -> pd.DataFrame:
-    formatted_rows = []
-    for row in feedback_rows:
-        formatted_rows.append(
-            {
-                "Request ID": row.get("request_id", ""),
-                "Rating": row.get("rating", ""),
-                "Comment": row.get("comment", ""),
-                "Submitted At": format_timestamp(row.get("created_at", "")),
-            }
-        )
-    return pd.DataFrame(formatted_rows)
-
-
-def feedback_stars(rating) -> str:
-    if rating in (None, ""):
-        return ""
+    if not value:
+        return {}
     try:
-        rating_value = int(rating)
-    except (TypeError, ValueError):
-        return ""
-    rating_value = max(1, min(5, rating_value))
-    return "★" * rating_value
-
-
-def stability_label(score) -> str:
-    if score is None:
-        return "Not available"
-    try:
-        value = float(score)
-    except (TypeError, ValueError):
-        return "Not available"
-    if value <= 0.33:
-        return "Low agreement"
-    if value <= 0.66:
-        return "Moderate agreement"
-    return "Strong agreement"
-
-
-def humanize_feature_label(label: str) -> str:
-    if not label:
-        return ""
-    cleaned = label.replace("num__", "").replace("cat__", "")
-    cleaned = cleaned.replace("has_", "").replace("_", " ")
-    cleaned = cleaned.replace("radio/tv", "radio or tv")
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    operators = ["<=", ">=", "<", ">", "="]
-    for operator in operators:
-        if operator in cleaned:
-            left, right = cleaned.split(operator, 1)
-            return f"{left.strip().title()} {operator} {right.strip()}"
-    if " " in cleaned:
-        head, tail = cleaned.rsplit(" ", 1)
-        if tail.lower() in {"male", "female", "own", "rent", "free", "little", "moderate", "rich", "unknown"}:
-            return f"{head.title()}: {tail.title()}"
-    return cleaned.title()
-
-
-def prepare_explanation_frame(items: list[dict], sort_ascending: bool = True) -> pd.DataFrame:
-    frame = pd.DataFrame(items).copy()
-    if frame.empty:
-        return frame
-    frame["feature"] = frame["feature"].map(humanize_feature_label)
-    frame["importance"] = frame["importance"].astype(float)
-    return frame.sort_values("importance", ascending=sort_ascending)
-
-
-def render_horizontal_explanation_chart(title: str, items: list[dict]) -> None:
-    frame = prepare_explanation_frame(items)
-    st.write(title)
-    if frame.empty:
-        st.info("No explanation data available.")
-        return
-    chart = (
-        alt.Chart(frame)
-        .mark_bar()
-        .encode(
-            x=alt.X("feature:N", sort=None, title="Feature", axis=alt.Axis(labelAngle=0, labelLimit=220)),
-            y=alt.Y("importance:Q", title="Impact"),
-            color=alt.condition(
-                alt.datum.importance >= 0,
-                alt.value("#7bc8f6"),
-                alt.value("#ff8f70"),
-            ),
-            tooltip=["feature", alt.Tooltip("importance:Q", format=".3f")],
-        )
-        .properties(height=360)
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-
-def render_rule_based_explanation(rule_data: dict) -> None:
-    st.write("Rule-based explanation")
-    status = rule_data.get("status")
-    if status == "ready":
-        decision = prediction_label(int(rule_data.get("prediction", 0)))
-        st.caption(f"RIPPER rule engine decision: {decision} | {rule_data.get('alignment_with_model', '')}")
-        matched_rule = rule_data.get("matched_rule", "")
-        matched_rule_summary = rule_data.get("matched_rule_summary") or []
-        if matched_rule_summary:
-            summary_text = (
-                f"This case was assessed as {decision.lower()} by the rule engine because "
-                + ", ".join(matched_rule_summary[:-1])
-                + (f", and {matched_rule_summary[-1]}." if len(matched_rule_summary) > 1 else f"{matched_rule_summary[0]}.")
-            )
-            st.write(summary_text[0].upper() + summary_text[1:])
-        if matched_rule:
-            st.write("Plain-language rule summary")
-            st.success(matched_rule)
-        if matched_rule_summary:
-            st.write("Main reasons identified by the rule engine")
-            st.markdown("\n".join(f"- {item.capitalize()}" for item in matched_rule_summary))
-        case_summary = rule_data.get("case_summary") or []
-        if case_summary:
-            with st.expander("View case conditions used by the rule engine"):
-                st.markdown("\n".join(f"- {item}" for item in case_summary))
-        learned_rules = rule_data.get("learned_rules", "")
-        if learned_rules:
-            with st.expander("Technical rule details"):
-                st.code(learned_rules, language="text")
-    elif status == "unavailable":
-        st.info(rule_data.get("message", "Rule-based explanation is unavailable in this environment."))
-    else:
-        st.warning(rule_data.get("message", "Rule-based explanation could not be generated."))
-
-
-def render_counterfactual_result(data: dict) -> None:
-    st.write("Optional counterfactual explanation")
-    status = data.get("status")
-    if status in {"not_requested", ""}:
-        st.caption("Generate this only when you want an advanced what-could-change explanation from the separate Alibi service.")
-        return
-    if status in {"queued", "processing"}:
-        st.info("Counterfactual generation is running in the separate Alibi service. Refresh in a few seconds.")
-        return
-    if status == "error":
-        st.error(data.get("error_message", "Counterfactual generation failed."))
-        return
-    result = data.get("result", {})
-    result_status = result.get("status")
-    if result_status == "ready":
-        st.success(result.get("message", "Counterfactual explanation is ready."))
-        suggestions = result.get("suggested_changes", [])
-        if suggestions:
-            frame = pd.DataFrame(suggestions).copy()
-            frame["feature"] = frame["feature"].map(humanize_feature_label)
-            frame["direction"] = frame["direction"].str.title()
-            frame["change_magnitude"] = frame["change_magnitude"].round(3)
-            frame.columns = ["Feature", "Suggested Change", "Magnitude"]
-            st.dataframe(frame, use_container_width=True, hide_index=True)
-    elif result_status == "not_found":
-        st.info(result.get("message", "No counterfactual was found."))
-    elif result_status == "unavailable":
-        st.warning(result.get("message", "Counterfactual service is unavailable."))
-    else:
-        st.warning(result.get("message", "Counterfactual result is unavailable."))
+        return json.loads(value)
+    except Exception:
+        return {}
 
 
 if page == "Model comparison":
-    st.subheader("Top registered models")
+    st.subheader("Registered model")
     data = api_get("/models/comparison")
     st.dataframe(format_model_comparison(data), use_container_width=True, hide_index=True)
-    st.caption(
-        "Legend:  \nAccuracy = overall correctness  \nPrecision = how often predicted denials are truly risky"
-        "  \nRecall = how many risky cases were caught  \nF1 = balance between precision and recall"
-        "  \nROC-AUC = overall ranking quality  \nDP Diff = demographic parity difference"
-        "  \nEO Diff = equal opportunity difference (Lower fairness difference values are generally better)."
-    )
 
-elif page == "Prediction input":
-    st.subheader("Submit an applicant profile")
+elif page == "Loan assessment":
+    st.subheader("Submit applicant profile")
     with st.form("prediction_form"):
-        age = st.number_input("Age", min_value=18, max_value=100, value=35)
-        sex = st.selectbox("Sex", ["male", "female"])
-        job = st.selectbox("Job", [0, 1, 2, 3], index=2)
-        housing = st.selectbox("Housing", ["own", "rent", "free"])
-        saving_accounts = st.selectbox("Saving accounts", ["unknown", "little", "moderate", "rich", "quite rich"])
-        checking_account = st.selectbox("Checking account", ["unknown", "little", "moderate", "rich"])
-        credit_amount = st.number_input("Credit amount", min_value=100.0, value=2500.0)
-        duration = st.number_input("Duration (months)", min_value=1, value=18)
-        purpose = st.selectbox(
-            "Purpose",
-            ["radio/tv", "education", "furniture/equipment", "car", "business", "domestic appliances", "repairs", "vacation/others"],
-        )
-        submitted = st.form_submit_button("Predict")
+        age = st.number_input("Age", min_value=18, max_value=100, value=32, step=1)
+        income = st.number_input("Income", min_value=1000.0, value=50000.0, step=1000.0)
+        credit_score = st.number_input("Credit score", min_value=300.0, max_value=850.0, value=690.0, step=1.0)
+        dti = st.number_input("Debt-to-income ratio", min_value=0.0, max_value=2.0, value=0.32, step=0.01)
+        employment_length = st.number_input("Employment length (years)", min_value=0.0, value=6.0, step=0.5)
+        existing_loans = st.number_input("Existing loans", min_value=0.0, value=1.0, step=1.0)
+        loan_amount = st.number_input("Requested loan amount", min_value=1000.0, value=300000.0, step=1000.0)
+        tenure_months = st.number_input("Tenure (months)", min_value=1, value=36, step=1)
+        ask_explain = st.checkbox("Request explanation/advisory", value=True)
+        user_text = st.text_area("User message", value="Please explain the decision.")
+        submitted = st.form_submit_button("Assess loan")
 
     if submitted:
         payload = {
             "age": age,
-            "sex": sex,
-            "job": job,
-            "housing": housing,
-            "saving_accounts": saving_accounts,
-            "checking_account": checking_account,
-            "credit_amount": credit_amount,
-            "duration": duration,
-            "purpose": purpose,
+            "income": income,
+            "credit_score": credit_score,
+            "dti": dti,
+            "employment_length": employment_length,
+            "existing_loans": existing_loans,
+            "loan_amount": loan_amount,
+            "tenure_months": tenure_months,
+            "ask_explain": ask_explain,
+            "user_text": user_text,
         }
         result = api_post("/predict", payload)
+        st.session_state["latest_payload"] = payload
         st.session_state["latest_request_id"] = result["request_id"]
-        st.success(
-            f"Decision: {prediction_label(result['prediction'])} | Risk probability: {result['probability']:.3f}"
-        )
-        st.caption(f"Request ID: {result['request_id']}")
+        st.success(f"Decision: {result['decision']} | Risk score: {result['risk_score']:.3f}")
+        st.caption(f"Request ID: {result['request_id']} | Explanation status: {result['explanation_status']}")
 
-elif page == "Explainability visualization":
-    st.subheader("Async explanation status")
+elif page == "Explainability":
+    st.subheader("SHAP explanation and advisory")
     request_id = st.text_input("Request ID", value=st.session_state.get("latest_request_id", ""))
-    col1, col2, col3 = st.columns(3)
-    if col1.button("Refresh explanation") and request_id:
+    col1, col2 = st.columns(2)
+    if col1.button("Refresh async explanation") and request_id:
         data = api_get(f"/explanations/{request_id}")
         if data["status"] == "pending":
-            st.info("Explanation is still processing. Try again in a few seconds.")
+            st.info("Explanation is still processing. Refresh again in a few seconds.")
         elif data["status"] == "error":
-            st.error(data.get("eli5_summary", "Explanation generation failed."))
+            st.error(data.get("explanation_text", "Explanation generation failed."))
         else:
-            st.success("Explanation is ready")
-            render_horizontal_explanation_chart("SHAP global importance", data["shap_global"])
-            render_horizontal_explanation_chart("SHAP local explanation", data["shap_local"])
-            render_horizontal_explanation_chart("LIME local explanation", data["lime_local"])
-            render_rule_based_explanation(data.get("rule_based_explanation", {}))
-            st.metric("Stability score", data["stability_score"])
-            st.caption(f"Interpretation: {stability_label(data['stability_score'])}")
-            st.text(data["eli5_summary"][:3000])
-            counterfactual_data = api_get(f"/counterfactuals/{request_id}")
-            render_counterfactual_result(counterfactual_data)
-    if col2.button("Regenerate explanation") and request_id:
-        api_post(f"/explanations/{request_id}/regenerate", {})
-        st.success("Explanation regeneration queued. Refresh in a few seconds.")
-    if col3.button("Generate counterfactual") and request_id:
-        api_post(f"/counterfactuals/{request_id}/request", {})
-        st.success("Counterfactual request queued. Refresh in a few seconds.")
-    st.caption("If an explanation was generated before a dependency fix, use Regenerate explanation for the same request ID.")
+            st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
+            st.session_state["latest_explanation_context"] = {
+                "request_id": request_id,
+                "decision": data.get("decision"),
+                "risk_score": data.get("risk_score"),
+                "explanation_text": data.get("explanation_text"),
+                "advisory": data.get("advisory"),
+                "counter_offer": data.get("counter_offer"),
+            }
+            render_reports(data.get("reports", []))
+            render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
+            render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
+            st.write(f"Sentiment: {data['sentiment']}")
+            st.write("Explanation")
+            st.info(data["explanation_text"])
+            st.write("Advisory")
+            st.success(data["advisory"] or "No advisory generated.")
+            if data.get("counter_offer"):
+                st.write("Counter-offer")
+                st.warning(data["counter_offer"])
+    if col2.button("Run synchronous explanation"):
+        payload = st.session_state.get("latest_payload")
+        if not payload:
+            st.info("Submit a loan assessment first.")
+        else:
+            data = api_post("/explain", payload)
+            st.session_state["latest_request_id"] = data["request_id"]
+            st.session_state["latest_explanation_context"] = {
+                "request_id": data.get("request_id"),
+                "decision": data.get("decision"),
+                "risk_score": data.get("risk_score"),
+                "explanation_text": data.get("explanation_text"),
+                "advisory": data.get("advisory"),
+                "counter_offer": data.get("counter_offer"),
+            }
+            st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
+            render_reports(data.get("reports", []))
+            render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
+            render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
+            st.info(data["explanation_text"])
+            st.success(data["advisory"] or "No advisory generated.")
+            if data.get("counter_offer"):
+                st.warning(data["counter_offer"])
+
+elif page == "Customer Chat":
+    st.subheader("Customer chat assistant")
+    st.caption("This page uses Gemini to chat with the customer in a plain-language advisory style.")
+
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
+
+    prediction_rows = api_get("/predictions")
+    request_options = {format_request_option(row): row["request_id"] for row in prediction_rows}
+    if request_options:
+        selected_request_label = st.selectbox(
+            "Select request ID for chat context",
+            options=list(request_options.keys()),
+            index=0,
+        )
+        selected_request_id = request_options[selected_request_label]
+    else:
+        selected_request_id = None
+
+    latest_context = st.session_state.get("latest_explanation_context", {})
+    latest_payload = st.session_state.get("latest_payload", {})
+    if latest_payload or latest_context:
+        with st.expander("Current case context", expanded=False):
+            if latest_payload:
+                st.write("Applicant input")
+                st.json(latest_payload)
+            if latest_context:
+                st.write("Latest decision context")
+                st.json(latest_context)
+
+    for item in st.session_state["chat_history"]:
+        with st.chat_message("assistant" if item["role"] == "assistant" else "user"):
+            st.write(item["content"])
+
+    prompt = st.chat_input("Ask the assistant about the loan outcome, next steps, or customer concerns")
+    if prompt:
+        applicant_context = {}
+        if latest_payload:
+            applicant_context.update(latest_payload)
+        if latest_context:
+            applicant_context.update(latest_context)
+
+        with st.chat_message("user"):
+            st.write(prompt)
+
+        result = api_post(
+            "/chat",
+            {
+                "message": prompt,
+                "history": st.session_state["chat_history"],
+                "applicant_context": applicant_context,
+            },
+        )
+        st.session_state["chat_history"] = result["history"]
+        with st.chat_message("assistant"):
+            st.write(result["reply"])
+            st.caption(f"Source: {result['source']}")
+
+    col1, col2, col3 = st.columns(3)
+    if col1.button("Use latest explanation in chat"):
+        payload = st.session_state.get("latest_payload")
+        if payload:
+            data = api_post("/explain", payload)
+            st.session_state["latest_request_id"] = data.get("request_id")
+            st.session_state["latest_explanation_context"] = {
+                "request_id": data.get("request_id"),
+                "decision": data.get("decision"),
+                "risk_score": data.get("risk_score"),
+                "explanation_text": data.get("explanation_text"),
+                "advisory": data.get("advisory"),
+                "counter_offer": data.get("counter_offer"),
+                "reports": data.get("reports", []),
+            }
+            st.success("Latest explanation and reports loaded into chat.")
+        else:
+            st.info("Submit a loan assessment first so the app has context to explain.")
+    if col2.button("Load selected request into chat"):
+        if selected_request_id:
+            prediction_data = api_get(f"/predictions/{selected_request_id}")
+            payload = prediction_data.get("input_payload", {})
+            data = api_post("/explain", payload)
+            st.session_state["latest_payload"] = payload
+            st.session_state["latest_request_id"] = data.get("request_id")
+            st.session_state["latest_explanation_context"] = {
+                "request_id": data.get("request_id"),
+                "decision": data.get("decision"),
+                "risk_score": data.get("risk_score"),
+                "explanation_text": data.get("explanation_text"),
+                "advisory": data.get("advisory"),
+                "counter_offer": data.get("counter_offer"),
+                "reports": data.get("reports", []),
+            }
+            st.success("Selected request context and reports loaded into chat.")
+        else:
+            st.info("No request IDs are available yet.")
+    if col3.button("Clear chat"):
+        st.session_state["chat_history"] = []
+        st.success("Chat history cleared.")
 
 elif page == "Fairness metrics":
     st.subheader("Fairness pre-checks")
     rows = api_get("/fairness")
-    frame = format_fairness_metrics(rows)
-    st.dataframe(frame, use_container_width=True, hide_index=True)
-    st.caption(
-        "How to read this: smaller gap values are better. "
-        "Selection Gap compares approval-rate differences between groups. "
-        "Opportunity Gap compares how differently the model treats qualified cases across groups."
-    )
-    st.caption(
-        "Status guide: Good = gap up to 0.05, Watch = 0.05 to 0.10, Needs review = above 0.10."
-    )
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 elif page == "Monitoring metrics":
-    st.subheader("Latency and stability")
+    st.subheader("Latency")
     rows = api_get("/monitoring")
     frame = pd.DataFrame(rows)
-    if not frame.empty:
-        st.dataframe(frame)
-        numeric_cols = [col for col in ["prediction_latency_ms", "explanation_time_ms", "explanation_stability"] if col in frame]
-        st.line_chart(frame[numeric_cols].fillna(0))
+    if frame.empty:
+        st.info("No monitoring data yet.")
     else:
-        st.info("No monitoring events yet.")
+        st.dataframe(frame, use_container_width=True, hide_index=True)
 
 elif page == "Audit logs":
-    st.subheader("Immutable audit trail simulation")
-    audit_rows = api_get("/audit-logs")
-    feedback_rows = api_get("/feedback")
-    st.dataframe(format_audit_logs(audit_rows, feedback_rows), use_container_width=True, hide_index=True)
-    st.caption("Feedback stars reflect the original 1-to-5 user rating for that request.")
+    st.subheader("Audit trail")
+    rows = api_get("/audit-logs")
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        st.info("No audit logs yet.")
+    else:
+        if "timestamp" in frame:
+            frame["timestamp"] = frame["timestamp"].map(format_timestamp)
+        st.dataframe(frame, use_container_width=True, hide_index=True)
+        selected_request_id = st.selectbox("View applicant input for request", options=frame["request_id"].tolist())
+        selected_row = next((row for row in rows if row.get("request_id") == selected_request_id), None)
+        if selected_row:
+            payload = parse_json_field(selected_row.get("payload"))
+            applicant_input = payload.get("input_payload", {})
+            if applicant_input:
+                st.write("Applicant input")
+                st.json(applicant_input)
+            explanation_payload = payload.get("explanation", {})
+            if explanation_payload:
+                st.write("Stored explanation context")
+                st.json(
+                    {
+                        "decision": payload.get("decision"),
+                        "risk_score": payload.get("risk_score"),
+                        "reports": explanation_payload.get("reports", []),
+                        "advisory": explanation_payload.get("advisory"),
+                        "counter_offer": explanation_payload.get("counter_offer"),
+                    }
+                )
+            if st.button("Load selected audit context into chat"):
+                st.session_state["latest_payload"] = applicant_input
+                st.session_state["latest_request_id"] = selected_request_id
+                st.session_state["latest_explanation_context"] = {
+                    "request_id": selected_request_id,
+                    "decision": payload.get("decision"),
+                    "risk_score": payload.get("risk_score"),
+                    "explanation_text": explanation_payload.get("explanation_text"),
+                    "advisory": explanation_payload.get("advisory"),
+                    "counter_offer": explanation_payload.get("counter_offer"),
+                    "reports": explanation_payload.get("reports", []),
+                }
+                st.success("Selected audit context loaded into chat.")
 
-elif page == "Explanation feedback rating":
-    st.subheader("Rate explanation quality")
-    col1, col2 = st.columns([2, 3])
-    request_id = col1.text_input("Request ID for feedback", value=st.session_state.get("latest_request_id", ""))
-    rating = col2.slider("Rating", min_value=1, max_value=5, value=4)
+elif page == "Feedback":
+    st.subheader("Feedback")
+    request_id = st.text_input("Request ID for feedback", value=st.session_state.get("latest_request_id", ""))
+    rating = st.slider("Rating", min_value=1, max_value=5, value=4)
     comment = st.text_area("Comment")
     if st.button("Submit feedback"):
         api_post("/feedback", {"request_id": request_id, "rating": rating, "comment": comment})
-        st.success("Feedback stored")
-
-    st.write("Feedback history")
-    feedback_rows = api_get("/feedback")
-    feedback_frame = format_feedback_history(feedback_rows)
-    if not feedback_frame.empty:
-        st.dataframe(feedback_frame, use_container_width=True, hide_index=True)
-    else:
-        st.info("No feedback submitted yet.")
+        st.success("Feedback stored.")
+    rows = api_get("/feedback")
+    frame = pd.DataFrame(rows)
+    if not frame.empty:
+        if "created_at" in frame:
+            frame["created_at"] = frame["created_at"].map(format_timestamp)
+        st.dataframe(frame, use_container_width=True, hide_index=True)

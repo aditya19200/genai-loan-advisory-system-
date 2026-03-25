@@ -9,10 +9,13 @@ Returns service health.
 Returns top registered models with versions and metrics.
 
 ### `POST /predict`
-Returns a `request_id`, prediction, probability, chosen model, and pending explanation status.
+Returns a `request_id`, decision, risk score, chosen model, and explanation availability/status.
+
+### `POST /explain`
+Runs the explanation flow synchronously and returns SHAP output, sentiment, advisory, Gemini response data, and optional counter-offer text.
 
 ### `GET /explanations/{request_id}`
-Returns status plus SHAP, LIME, ELI5, and stability metrics when ready.
+Returns status plus SHAP, explanation text, advisory, sentiment, and optional counter-offer when ready.
 
 ### `GET /fairness`
 Returns fairness pre-checks for the top registered models.
@@ -22,12 +25,6 @@ Returns latency and stability event history.
 
 ### `GET /audit-logs`
 Returns the simulated immutable audit ledger.
-
-### `POST /counterfactuals/{request_id}/request`
-Queues an optional Alibi-based counterfactual explanation request for the selected case.
-
-### `GET /counterfactuals/{request_id}`
-Returns the current status and result of the optional counterfactual explanation.
 
 ### `POST /feedback`
 Stores a user rating and comment for an explanation.

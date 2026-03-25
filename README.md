@@ -1,6 +1,6 @@
-# XAI Finance Platform
+# AI-Based Loan Decision System
 
-GitHub-ready prototype of an explainable AI financial decision platform built with FastAPI, Streamlit, scikit-learn, XGBoost, SHAP, LIME, ELI5, Fairlearn, and SQLite.
+Integrated loan decision prototype built with FastAPI, Streamlit, scikit-learn, XGBoost, SHAP, Gemini, Fairlearn, and SQLite.
 
 ## Python version
 
@@ -9,13 +9,14 @@ Use Python `3.11` or `3.12`. The scientific stack in this project is not reliabl
 ## What it demonstrates
 
 - modular data processing and feature engineering
-- model training with hyperparameter tuning and cross-validation
+- XGBoost-based credit risk training with feature engineering
 - model versioning and registry
 - evaluation with accuracy, precision, recall, F1, ROC-AUC, and fairness pre-checks
-- asynchronous explanation generation
-- SHAP, LIME, and ELI5 explanation workflows
+- immediate decision plus asynchronous or on-demand explanation generation
+- SHAP-only explanation workflow aligned with the project HLD
+- Gemini-backed explanation, advisory, and counter-offer generation
 - SQLite-backed audit logging, monitoring, and feedback capture
-- Streamlit dashboard for model, fairness, monitoring, and audit views
+- Streamlit dashboard for loan assessment, explainability, fairness, monitoring, and audit views
 
 ## Important prototype note
 
@@ -31,25 +32,9 @@ uvicorn backend_services.api:app --reload --app-dir .
 streamlit run frontend/streamlit_app.py
 ```
 
-## Optional Alibi Counterfactual Service
+## Gemini configuration
 
-Counterfactual explanations are isolated in a separate local service so the main app stays stable.
-
-1. Create a separate environment for Alibi:
-
-```bash
-py -3.10 -m venv venv_alibi
-venv_alibi\Scripts\activate
-pip install -r requirements-alibi.txt
-```
-
-2. Start the Alibi service:
-
-```bash
-uvicorn alibi_service.api:app --reload --app-dir .
-```
-
-3. In the Streamlit explainability page, use `Generate counterfactual` for a request ID.
+Set `GEMINI_API_KEY` before starting the backend if you want live LLM-generated explanations. If it is not set, the backend falls back to deterministic rule-based explanation text and advisory.
 
 On Windows PowerShell, you can also use `.\run_app.ps1`.
 
@@ -59,11 +44,10 @@ This repo includes a Render blueprint in `render.yaml` for:
 
 - a Streamlit frontend web service
 - a private FastAPI backend service
-- a private optional Alibi counterfactual service
 
 Important deployment notes:
 
 - the frontend and backend must use environment-based service URLs, not `localhost`
 - SQLite should be mounted on a persistent disk for the backend
-- the Alibi service should stay isolated from the main app runtime
+- set `GEMINI_API_KEY` in the backend service environment
 - for production-grade deployment, moving from SQLite to Postgres would be a stronger long-term choice

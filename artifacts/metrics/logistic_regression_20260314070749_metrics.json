@@ -1,0 +1,26 @@
+{
+  "model_name": "logistic_regression",
+  "version": "20260314070749",
+  "best_params": {
+    "classifier__C": 1.0,
+    "classifier__class_weight": "balanced"
+  },
+  "cv_best_score": 0.9541811869971388,
+  "metrics": {
+    "accuracy": 0.9,
+    "precision": 0.8631578947368421,
+    "recall": 0.9213483146067416,
+    "f1_score": 0.8913043478260869,
+    "roc_auc": 0.9671019333940682,
+    "fairness": {
+      "Sex": {
+        "demographic_parity_difference": 0.006666666666666654,
+        "equal_opportunity_difference": 0.03442340791738381
+      },
+      "age_group": {
+        "demographic_parity_difference": 0.08377853326857693,
+        "equal_opportunity_difference": 0.11475409836065575
+      }
+    }
+  }
+}

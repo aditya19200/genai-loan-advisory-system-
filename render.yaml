@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: xai-finance-frontend
+    name: loan-decision-frontend
     runtime: python
     rootDir: .
     buildCommand: pip install -r requirements.txt
@@ -13,29 +13,18 @@ services:
           property: hostport
 
   - type: pserv
-    name: xai-finance-backend
+    name: loan-decision-backend
     runtime: python
     rootDir: .
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend_services.api:app --host 0.0.0.0 --port $PORT --app-dir .
     healthCheckPath: /health
     disk:
-      name: xai-finance-db
+      name: loan-decision-db
       mountPath: /var/data
       sizeGB: 1
     envVars:
       - key: DB_PATH
         value: /var/data/xai_finance.db
-      - key: ALIBI_SERVICE_URL
-        fromService:
-          type: pserv
-          name: xai-finance-alibi
-          property: hostport
-
-  - type: pserv
-    name: xai-finance-alibi
-    runtime: python
-    rootDir: .
-    buildCommand: pip install -r requirements-alibi.txt
-    startCommand: uvicorn alibi_service.api:app --host 0.0.0.0 --port $PORT --app-dir .
-    healthCheckPath: /health
+      - key: GEMINI_API_KEY
+        sync: false

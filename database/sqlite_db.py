@@ -35,6 +35,7 @@ class DatabaseManager:
                     model_version TEXT NOT NULL,
                     input_payload TEXT NOT NULL,
                     prediction INTEGER NOT NULL,
+                    decision TEXT,
                     probability REAL NOT NULL,
                     created_at TEXT NOT NULL
                 )
@@ -45,20 +46,39 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS explanations (
                     request_id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
+                    decision TEXT,
+                    risk_score REAL,
                     shap_global TEXT,
                     shap_local TEXT,
-                    lime_local TEXT,
-                    rule_based_explanation TEXT,
-                    eli5_summary TEXT,
-                    stability_score REAL,
+                    sentiment TEXT,
+                    explanation_text TEXT,
+                    advisory TEXT,
+                    counter_offer TEXT,
+                    reports TEXT,
+                    llm_response TEXT,
+                    rag_context TEXT,
                     generation_time_ms REAL,
                     generated_at TEXT
                 )
                 """
             )
             columns = {row["name"] for row in cursor.execute("PRAGMA table_info(explanations)").fetchall()}
-            if "rule_based_explanation" not in columns:
-                cursor.execute("ALTER TABLE explanations ADD COLUMN rule_based_explanation TEXT")
+            for column_name, column_type in [
+                ("decision", "TEXT"),
+                ("risk_score", "REAL"),
+                ("sentiment", "TEXT"),
+                ("explanation_text", "TEXT"),
+                ("advisory", "TEXT"),
+                ("counter_offer", "TEXT"),
+                ("reports", "TEXT"),
+                ("llm_response", "TEXT"),
+                ("rag_context", "TEXT"),
+            ]:
+                if column_name not in columns:
+                    cursor.execute(f"ALTER TABLE explanations ADD COLUMN {column_name} {column_type}")
+            prediction_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(predictions)").fetchall()}
+            if "decision" not in prediction_columns:
+                cursor.execute("ALTER TABLE predictions ADD COLUMN decision TEXT")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -107,13 +127,13 @@ class DatabaseManager:
                 """
             )
 
-    def insert_prediction(self, record: dict[str, Any]) -> None:
+    def insert_prediction(self, record: dict[str, Any], explanation_status: str = "pending") -> None:
         with self.connect() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO predictions
-                (request_id, model_name, model_version, input_payload, prediction, probability, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (request_id, model_name, model_version, input_payload, prediction, decision, probability, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record["request_id"],
@@ -121,6 +141,7 @@ class DatabaseManager:
                     record["model_version"],
                     json.dumps(record["input_payload"]),
                     record["prediction"],
+                    record.get("decision"),
                     record["probability"],
                     record["created_at"],
                 ),
@@ -130,14 +151,7 @@ class DatabaseManager:
                 INSERT OR REPLACE INTO explanations (request_id, status)
                 VALUES (?, ?)
                 """,
-                (record["request_id"], "pending"),
-            )
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO counterfactuals (request_id, status)
-                VALUES (?, ?)
-                """,
-                (record["request_id"], "not_requested"),
+                (record["request_id"], explanation_status),
             )
 
     def insert_explanation(self, request_id: str, payload: dict[str, Any], generation_time_ms: float) -> None:
@@ -145,18 +159,24 @@ class DatabaseManager:
             conn.execute(
                 """
                 UPDATE explanations
-                SET status = ?, shap_global = ?, shap_local = ?, lime_local = ?, rule_based_explanation = ?, eli5_summary = ?,
-                    stability_score = ?, generation_time_ms = ?, generated_at = ?
+                SET status = ?, decision = ?, risk_score = ?, shap_global = ?, shap_local = ?, sentiment = ?,
+                    explanation_text = ?, advisory = ?, counter_offer = ?, reports = ?, llm_response = ?, rag_context = ?,
+                    generation_time_ms = ?, generated_at = ?
                 WHERE request_id = ?
                 """,
                 (
                     "ready",
+                    payload["decision"],
+                    payload["risk_score"],
                     json.dumps(payload["shap_global"]),
                     json.dumps(payload["shap_local"]),
-                    json.dumps(payload["lime_local"]),
-                    json.dumps(payload.get("rule_based_explanation", {})),
-                    payload["eli5_summary"],
-                    payload["stability_score"],
+                    payload["sentiment"],
+                    payload["explanation_text"],
+                    payload["advisory"],
+                    payload["counter_offer"],
+                    json.dumps(payload.get("reports", [])),
+                    json.dumps(payload.get("llm_response", {})),
+                    json.dumps(payload.get("rag_context", [])),
                     generation_time_ms,
                     datetime.now(timezone.utc).isoformat(),
                     request_id,
@@ -168,7 +188,7 @@ class DatabaseManager:
             conn.execute(
                 """
                 UPDATE explanations
-                SET status = ?, eli5_summary = ?, generated_at = ?
+                SET status = ?, explanation_text = ?, generated_at = ?
                 WHERE request_id = ?
                 """,
                 (
