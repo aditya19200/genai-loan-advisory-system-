@@ -212,6 +212,10 @@ elif page == "Explainability":
             st.error(data.get("explanation_text", "Explanation generation failed."))
         else:
             st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
+            st.caption(
+                f"Explanation source: {data.get('explanation_source', 'fallback')} | "
+                f"Reports source: {data.get('reports_source', 'fallback')}"
+            )
             st.session_state["latest_explanation_context"] = {
                 "request_id": request_id,
                 "decision": data.get("decision"),
@@ -219,6 +223,8 @@ elif page == "Explainability":
                 "explanation_text": data.get("explanation_text"),
                 "advisory": data.get("advisory"),
                 "counter_offer": data.get("counter_offer"),
+                "explanation_source": data.get("explanation_source", "fallback"),
+                "reports_source": data.get("reports_source", "fallback"),
             }
             render_reports(data.get("reports", []))
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
@@ -245,8 +251,14 @@ elif page == "Explainability":
                 "explanation_text": data.get("explanation_text"),
                 "advisory": data.get("advisory"),
                 "counter_offer": data.get("counter_offer"),
+                "explanation_source": data.get("explanation_source", "fallback"),
+                "reports_source": data.get("reports_source", "fallback"),
             }
             st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
+            st.caption(
+                f"Explanation source: {data.get('explanation_source', 'fallback')} | "
+                f"Reports source: {data.get('reports_source', 'fallback')}"
+            )
             render_reports(data.get("reports", []))
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
             render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import requests
@@ -135,10 +136,46 @@ def call_gemini(prompt: str) -> dict[str, Any]:
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")
 
+    response_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "explanation": {"type": "STRING"},
+            "advisory": {"type": "STRING"},
+            "counter_offer": {"type": "STRING", "nullable": True},
+            "reports": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "title": {"type": "STRING"},
+                        "audience": {"type": "STRING"},
+                        "summary": {"type": "STRING"},
+                        "bullets": {
+                            "type": "ARRAY",
+                            "items": {"type": "STRING"},
+                        },
+                    },
+                    "required": ["title", "audience", "summary", "bullets"],
+                },
+            },
+            "grounded_references": {
+                "type": "ARRAY",
+                "items": {"type": "STRING"},
+            },
+        },
+        "required": ["explanation", "advisory", "reports", "grounded_references"],
+    }
+
     response = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
         headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
-        json={"contents": [{"parts": [{"text": prompt}]}]},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": response_schema,
+            },
+        },
         timeout=30,
     )
     response.raise_for_status()
@@ -152,10 +189,8 @@ def call_gemini(prompt: str) -> dict[str, Any]:
     )
     if not text:
         return {"raw_text": "", "parsed": {}}
-    try:
-        return {"raw_text": text, "parsed": json.loads(text)}
-    except json.JSONDecodeError:
-        return {"raw_text": text, "parsed": {}}
+    parsed = _parse_json_like_response(text)
+    return {"raw_text": text, "parsed": parsed}
 
 
 def build_customer_chat_prompt(
@@ -221,6 +256,26 @@ def strip_feature_prefix(feature: str) -> str:
 
 def humanize_feature(feature: str) -> str:
     return strip_feature_prefix(feature).replace("_", " ")
+
+
+def _parse_json_like_response(text: str) -> dict[str, Any]:
+    candidates = [text.strip()]
+    fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
+    candidates.extend(item.strip() for item in fenced if item.strip())
+
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        candidates.append(text[first_brace : last_brace + 1].strip())
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
+    return {}
 
 
 def build_reports(

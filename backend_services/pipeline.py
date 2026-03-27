@@ -135,6 +135,10 @@ class PredictionService:
                 except Exception as exc:
                     llm_response = {"error": str(exc), "parsed": {}}
 
+            parsed = llm_response.get("parsed", {}) if isinstance(llm_response, dict) else {}
+            explanation_source = "gemini" if parsed.get("explanation") else "fallback"
+            reports_source = "gemini" if parsed.get("reports") else "fallback"
+
             duration_ms = (time.perf_counter() - started) * 1000
             payload = {
                 "decision": prediction_row["decision"],
@@ -142,10 +146,12 @@ class PredictionService:
                 "shap_global": explanation["shap_global"],
                 "shap_local": explanation["shap_local"],
                 "sentiment": sentiment,
-                "explanation_text": llm_response.get("parsed", {}).get("explanation") or fallback["explanation_text"],
-                "advisory": llm_response.get("parsed", {}).get("advisory") or fallback["advisory"],
-                "counter_offer": llm_response.get("parsed", {}).get("counter_offer") or fallback["counter_offer"],
-                "reports": llm_response.get("parsed", {}).get("reports") or fallback["reports"],
+                "explanation_text": parsed.get("explanation") or fallback["explanation_text"],
+                "advisory": parsed.get("advisory") or fallback["advisory"],
+                "counter_offer": parsed.get("counter_offer") or fallback["counter_offer"],
+                "reports": parsed.get("reports") or fallback["reports"],
+                "explanation_source": explanation_source,
+                "reports_source": reports_source,
                 "llm_response": llm_response,
                 "rag_context": rag_context,
             }
@@ -176,6 +182,8 @@ class PredictionService:
             "advisory": row.get("advisory") or "",
             "counter_offer": row.get("counter_offer"),
             "reports": json.loads(row.get("reports") or "[]"),
+            "explanation_source": row.get("explanation_source") or "fallback",
+            "reports_source": row.get("reports_source") or "fallback",
             "llm_response": json.loads(row.get("llm_response") or "{}"),
             "rag_context": json.loads(row.get("rag_context") or "[]"),
             "generated_at": datetime.fromisoformat(row["generated_at"]) if row.get("generated_at") else None,

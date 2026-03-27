@@ -42,6 +42,8 @@ class ExplanationResponse(BaseModel):
     advisory: str = ""
     counter_offer: str | None = None
     reports: list[dict[str, Any]] = Field(default_factory=list)
+    explanation_source: str = "fallback"
+    reports_source: str = "fallback"
     llm_response: dict[str, Any] = Field(default_factory=dict)
     rag_context: list[dict[str, Any]] = Field(default_factory=list)
     generated_at: datetime | None = None

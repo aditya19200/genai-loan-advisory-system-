@@ -1,2 +1,25 @@
+Recommended Python version:
+py -3.11 -m venv .venv
+
+Activate environment:
+.\.venv\Scripts\Activate.ps1
+
+Install dependencies:
+pip install -r requirements.txt
+
+Set Gemini API key for current terminal only:
+$env:GEMINI_API_KEY="key here"
+
+Check whether Gemini API key is set:
+if ($env:GEMINI_API_KEY) { "SET" } else { "NOT SET" }
+
+Set Gemini API key persistently for your Windows user:
+[Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "your_gemini_api_key_here", "User")
+
+After setting persistently, close this terminal and open a new PowerShell window.
+
+Run backend:
 uvicorn backend_services.api:app --reload --app-dir .
+
+Run frontend:
 streamlit run frontend/streamlit_app.py

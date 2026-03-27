@@ -119,6 +119,7 @@ def regenerate_explanation(request_id: str, background_tasks: BackgroundTasks):
             UPDATE explanations
             SET status = ?, decision = NULL, risk_score = NULL, shap_global = NULL, shap_local = NULL,
                 sentiment = NULL, explanation_text = NULL, advisory = NULL, counter_offer = NULL, reports = NULL,
+                explanation_source = NULL, reports_source = NULL,
                 llm_response = NULL, rag_context = NULL, generation_time_ms = NULL, generated_at = NULL
             WHERE request_id = ?
             """,
