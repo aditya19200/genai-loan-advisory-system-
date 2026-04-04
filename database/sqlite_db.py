@@ -57,6 +57,7 @@ class DatabaseManager:
                     reports TEXT,
                     explanation_source TEXT,
                     reports_source TEXT,
+                    rag_source TEXT,
                     llm_response TEXT,
                     rag_context TEXT,
                     generation_time_ms REAL,
@@ -75,6 +76,7 @@ class DatabaseManager:
                 ("reports", "TEXT"),
                 ("explanation_source", "TEXT"),
                 ("reports_source", "TEXT"),
+                ("rag_source", "TEXT"),
                 ("llm_response", "TEXT"),
                 ("rag_context", "TEXT"),
             ]:
@@ -165,7 +167,7 @@ class DatabaseManager:
                 UPDATE explanations
                 SET status = ?, decision = ?, risk_score = ?, shap_global = ?, shap_local = ?, sentiment = ?,
                     explanation_text = ?, advisory = ?, counter_offer = ?, reports = ?, explanation_source = ?, reports_source = ?,
-                    llm_response = ?, rag_context = ?,
+                    rag_source = ?, llm_response = ?, rag_context = ?,
                     generation_time_ms = ?, generated_at = ?
                 WHERE request_id = ?
                 """,
@@ -182,6 +184,7 @@ class DatabaseManager:
                     json.dumps(payload.get("reports", [])),
                     payload.get("explanation_source", "fallback"),
                     payload.get("reports_source", "fallback"),
+                    payload.get("rag_source", "unavailable"),
                     json.dumps(payload.get("llm_response", {})),
                     json.dumps(payload.get("rag_context", [])),
                     generation_time_ms,

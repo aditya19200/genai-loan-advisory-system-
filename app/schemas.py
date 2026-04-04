@@ -44,6 +44,7 @@ class ExplanationResponse(BaseModel):
     reports: list[dict[str, Any]] = Field(default_factory=list)
     explanation_source: str = "fallback"
     reports_source: str = "fallback"
+    rag_source: str = "unavailable"
     llm_response: dict[str, Any] = Field(default_factory=dict)
     rag_context: list[dict[str, Any]] = Field(default_factory=list)
     generated_at: datetime | None = None
@@ -63,7 +64,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     source: str
+    rag_source: str = "unavailable"
     history: list[ChatMessage] = Field(default_factory=list)
+    rag_context: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class FeedbackInput(BaseModel):

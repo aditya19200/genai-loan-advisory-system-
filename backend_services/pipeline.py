@@ -12,6 +12,7 @@ from backend_services.llm_service import (
     build_explanation_prompt,
     build_rule_based_response,
     call_gemini,
+    ensure_rbi_report,
     should_generate_advisory,
     simple_sentiment,
 )
@@ -21,6 +22,7 @@ from explainability.engine import ExplainabilityEngine
 from models.registry import ModelRegistry
 from models.training import ModelTrainer, load_registered_model
 from monitoring.service import MonitoringService
+from rag.retriever import build_rag_query, get_rbi_knowledge_base
 
 
 class PredictionService:
@@ -30,6 +32,7 @@ class PredictionService:
         self.audit = AuditLogger(self.db)
         self.registry = ModelRegistry()
         self.trainer = ModelTrainer()
+        self.rag = get_rbi_knowledge_base()
         self._load_models()
 
     def _load_models(self) -> None:
@@ -112,13 +115,22 @@ class PredictionService:
             frame = DataProcessor.api_payload_to_frame(input_payload)
             explanation = self.explainer.explain(frame)
             sentiment = simple_sentiment(input_payload.get("user_text"))
-            rag_context: list[dict[str, Any]] = []
+            rag_context = self.rag.retrieve(
+                build_rag_query(
+                    prediction_row["decision"],
+                    risk_score,
+                    explanation["shap_local"],
+                    input_payload.get("user_text"),
+                )
+            )
+            rag_source = "retrieved" if rag_context else "unavailable"
             fallback = build_rule_based_response(
                 decision=prediction_row["decision"],
                 risk_score=risk_score,
                 shap_explanation=explanation["shap_local"],
                 sentiment=sentiment,
                 sample=input_payload,
+                rag_context=rag_context,
             )
             llm_response: dict[str, Any] = {}
             if should_run:
@@ -137,6 +149,7 @@ class PredictionService:
 
             parsed = llm_response.get("parsed", {}) if isinstance(llm_response, dict) else {}
             explanation_source = "gemini" if parsed.get("explanation") else "fallback"
+            reports = ensure_rbi_report(parsed.get("reports") or fallback["reports"], fallback["reports"])
             reports_source = "gemini" if parsed.get("reports") else "fallback"
 
             duration_ms = (time.perf_counter() - started) * 1000
@@ -149,9 +162,10 @@ class PredictionService:
                 "explanation_text": parsed.get("explanation") or fallback["explanation_text"],
                 "advisory": parsed.get("advisory") or fallback["advisory"],
                 "counter_offer": parsed.get("counter_offer") or fallback["counter_offer"],
-                "reports": parsed.get("reports") or fallback["reports"],
+                "reports": reports,
                 "explanation_source": explanation_source,
                 "reports_source": reports_source,
+                "rag_source": rag_source,
                 "llm_response": llm_response,
                 "rag_context": rag_context,
             }
@@ -184,6 +198,7 @@ class PredictionService:
             "reports": json.loads(row.get("reports") or "[]"),
             "explanation_source": row.get("explanation_source") or "fallback",
             "reports_source": row.get("reports_source") or "fallback",
+            "rag_source": row.get("rag_source") or "unavailable",
             "llm_response": json.loads(row.get("llm_response") or "{}"),
             "rag_context": json.loads(row.get("rag_context") or "[]"),
             "generated_at": datetime.fromisoformat(row["generated_at"]) if row.get("generated_at") else None,

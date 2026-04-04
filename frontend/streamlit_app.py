@@ -119,6 +119,34 @@ def render_reports(reports: list[dict]) -> None:
                 st.markdown(f"- {bullet}")
 
 
+def render_rag_context(items: list[dict], title: str = "RBI Grounding") -> None:
+    st.write(title)
+    if not items:
+        st.info("No RBI guideline snippets were retrieved for this case.")
+        return
+    for item in items:
+        header = f"{item.get('category', 'RBI')} | {item.get('title', 'Guideline')}"
+        with st.expander(header, expanded=False):
+            if item.get("category_note"):
+                st.caption(item["category_note"])
+            st.write(item.get("text", ""))
+            if "score" in item:
+                st.caption(f"Similarity score: {float(item['score']):.3f}")
+
+
+def render_rag_status() -> None:
+    status = api_get("/rag/status")
+    ready = bool(status.get("ready"))
+    message = status.get("message", "")
+    doc_path = status.get("doc_path", "")
+    if ready:
+        st.success(f"RAG status: Ready | {message}")
+    else:
+        st.warning(f"RAG status: Not ready | {message}")
+    if doc_path:
+        st.caption(f"RBI document: {doc_path}")
+
+
 def format_model_comparison(data: list[dict]) -> pd.DataFrame:
     rows = []
     for record in data:
@@ -202,6 +230,7 @@ elif page == "Loan assessment":
 
 elif page == "Explainability":
     st.subheader("SHAP explanation and advisory")
+    render_rag_status()
     request_id = st.text_input("Request ID", value=st.session_state.get("latest_request_id", ""))
     col1, col2 = st.columns(2)
     if col1.button("Refresh async explanation") and request_id:
@@ -214,7 +243,8 @@ elif page == "Explainability":
             st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
             st.caption(
                 f"Explanation source: {data.get('explanation_source', 'fallback')} | "
-                f"Reports source: {data.get('reports_source', 'fallback')}"
+                f"Reports source: {data.get('reports_source', 'fallback')} | "
+                f"RAG source: {data.get('rag_source', 'unavailable')}"
             )
             st.session_state["latest_explanation_context"] = {
                 "request_id": request_id,
@@ -225,8 +255,11 @@ elif page == "Explainability":
                 "counter_offer": data.get("counter_offer"),
                 "explanation_source": data.get("explanation_source", "fallback"),
                 "reports_source": data.get("reports_source", "fallback"),
+                "rag_source": data.get("rag_source", "unavailable"),
+                "rag_context": data.get("rag_context", []),
             }
             render_reports(data.get("reports", []))
+            render_rag_context(data.get("rag_context", []))
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
             render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
             st.write(f"Sentiment: {data['sentiment']}")
@@ -253,13 +286,16 @@ elif page == "Explainability":
                 "counter_offer": data.get("counter_offer"),
                 "explanation_source": data.get("explanation_source", "fallback"),
                 "reports_source": data.get("reports_source", "fallback"),
+                "rag_context": data.get("rag_context", []),
             }
             st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
             st.caption(
                 f"Explanation source: {data.get('explanation_source', 'fallback')} | "
-                f"Reports source: {data.get('reports_source', 'fallback')}"
+                f"Reports source: {data.get('reports_source', 'fallback')} | "
+                f"RAG source: {data.get('rag_source', 'unavailable')}"
             )
             render_reports(data.get("reports", []))
+            render_rag_context(data.get("rag_context", []))
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
             render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
             st.info(data["explanation_text"])
@@ -270,6 +306,7 @@ elif page == "Explainability":
 elif page == "Customer Chat":
     st.subheader("Customer chat assistant")
     st.caption("This page uses Gemini to chat with the customer in a plain-language advisory style.")
+    render_rag_status()
 
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
@@ -321,9 +358,11 @@ elif page == "Customer Chat":
             },
         )
         st.session_state["chat_history"] = result["history"]
+        st.session_state["chat_rag_context"] = result.get("rag_context", [])
         with st.chat_message("assistant"):
             st.write(result["reply"])
-            st.caption(f"Source: {result['source']}")
+            st.caption(f"Source: {result['source']} | RAG source: {result.get('rag_source', 'unavailable')}")
+        render_rag_context(result.get("rag_context", []), title="RBI Context Used In This Reply")
 
     col1, col2, col3 = st.columns(3)
     if col1.button("Use latest explanation in chat"):
@@ -339,6 +378,7 @@ elif page == "Customer Chat":
                 "advisory": data.get("advisory"),
                 "counter_offer": data.get("counter_offer"),
                 "reports": data.get("reports", []),
+                "rag_context": data.get("rag_context", []),
             }
             st.success("Latest explanation and reports loaded into chat.")
         else:
@@ -358,13 +398,18 @@ elif page == "Customer Chat":
                 "advisory": data.get("advisory"),
                 "counter_offer": data.get("counter_offer"),
                 "reports": data.get("reports", []),
+                "rag_context": data.get("rag_context", []),
             }
             st.success("Selected request context and reports loaded into chat.")
         else:
             st.info("No request IDs are available yet.")
     if col3.button("Clear chat"):
         st.session_state["chat_history"] = []
+        st.session_state["chat_rag_context"] = []
         st.success("Chat history cleared.")
+
+    if st.session_state.get("chat_rag_context"):
+        render_rag_context(st.session_state["chat_rag_context"], title="Latest RBI Context In Chat")
 
 elif page == "Fairness metrics":
     st.subheader("Fairness pre-checks")

@@ -2,8 +2,8 @@
   "models": [
     {
       "name": "xgboost",
-      "version": "20260327064527",
-      "artifact_path": "C:\\Users\\rithv\\WORK\\PES\\6th Semester\\GenAI\\Miniproject\\loan_advisory_system\\artifacts\\models\\xgboost_20260327064527.joblib",
+      "version": "20260404180031",
+      "artifact_path": "C:\\Users\\rithv\\WORK\\PES\\6th Semester\\GenAI\\Miniproject\\loan_advisory_system\\artifacts\\models\\xgboost_20260404180031.joblib",
       "metrics": {
         "accuracy": 0.925,
         "precision": 0.8813559322033898,
@@ -22,7 +22,7 @@
         }
       },
       "rank": 1,
-      "registered_at": "2026-03-27T06:45:27.936778+00:00"
+      "registered_at": "2026-04-04T18:00:31.247401+00:00"
     }
   ]
 }

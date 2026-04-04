@@ -10,11 +10,13 @@ from app.schemas import ChatMessage, ChatRequest, ChatResponse, ExplanationRespo
 from backend_services.llm_service import chat_with_customer
 from backend_services.pipeline import PredictionService
 from database.sqlite_db import DatabaseManager
+from rag.retriever import get_rbi_knowledge_base
 
 
 ensure_directories()
 service = PredictionService()
 db = DatabaseManager()
+rag = get_rbi_knowledge_base()
 app = FastAPI(title="AI-Based Loan Decision System", version="0.2.0")
 
 app.add_middleware(
@@ -34,6 +36,11 @@ def health() -> dict[str, str]:
 @app.get("/models/comparison")
 def model_comparison():
     return service.model_comparison()
+
+
+@app.get("/rag/status")
+def rag_status():
+    return rag.status()
 
 
 @app.post("/predict", response_model=PredictionResponse)
@@ -91,13 +98,19 @@ def explain(payload: PredictionInput) -> ExplanationResponse:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest) -> ChatResponse:
+    message = payload.message
+    applicant_context = payload.applicant_context
+    use_rag = any(token in message.lower() for token in ["rbi", "guideline", "guidelines", "rule", "policy", "policies", "kfs", "ombudsman"])
+    rag_context = rag.retrieve(f"User question: {message}. Applicant context: {applicant_context}") if use_rag or applicant_context else []
+    rag_source = "retrieved" if rag_context else "unavailable"
     chat_result = chat_with_customer(
-        message=payload.message,
+        message=message,
         history=[item.model_dump() for item in payload.history],
-        applicant_context=payload.applicant_context,
+        applicant_context=applicant_context,
+        rag_context=rag_context,
     )
     updated_history = [*payload.history, ChatMessage(role="user", content=payload.message), ChatMessage(role="assistant", content=chat_result["reply"])]
-    return ChatResponse(reply=chat_result["reply"], source=chat_result["source"], history=updated_history)
+    return ChatResponse(reply=chat_result["reply"], source=chat_result["source"], rag_source=rag_source, history=updated_history, rag_context=rag_context)
 
 
 @app.get("/explanations/{request_id}", response_model=ExplanationResponse)
@@ -120,6 +133,7 @@ def regenerate_explanation(request_id: str, background_tasks: BackgroundTasks):
             SET status = ?, decision = NULL, risk_score = NULL, shap_global = NULL, shap_local = NULL,
                 sentiment = NULL, explanation_text = NULL, advisory = NULL, counter_offer = NULL, reports = NULL,
                 explanation_source = NULL, reports_source = NULL,
+                rag_source = NULL,
                 llm_response = NULL, rag_context = NULL, generation_time_ms = NULL, generated_at = NULL
             WHERE request_id = ?
             """,

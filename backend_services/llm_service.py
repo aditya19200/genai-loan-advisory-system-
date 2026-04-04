@@ -30,8 +30,10 @@ def build_rule_based_response(
     shap_explanation: list[dict[str, Any]],
     sentiment: str,
     sample: dict[str, Any] | None = None,
+    rag_context: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     sample = sample or {}
+    rag_context = rag_context or []
     ranked = sorted(shap_explanation, key=lambda item: abs(float(item["importance"])), reverse=True)
     risk_drivers = [humanize_feature(item["feature"]) for item in ranked if float(item["importance"]) > 0][:3]
     support_drivers = [humanize_feature(item["feature"]) for item in ranked if float(item["importance"]) < 0][:2]
@@ -97,6 +99,7 @@ def build_rule_based_response(
             advisory=" ".join(advice[:2]),
             counter_offer=counter_offer,
             sample=sample,
+            rag_context=rag_context,
         ),
     }
 
@@ -126,17 +129,18 @@ def build_explanation_prompt(
     lines.append(
         "Return valid JSON with keys explanation, advisory, counter_offer, reports, grounded_references. "
         "The reports field must be a list of objects with keys title, audience, summary, bullets. "
-        "Include sensible report sections such as decision summary, rejection reasons if applicable, counter-offer if applicable, and improvement plan. "
+        "Include sensible report sections such as decision summary, rejection reasons if applicable, counter-offer if applicable, improvement plan, "
+        "and an RBI Guidelines Alignment Report based on the retrieved RBI clauses. "
         "Keep the explanation under 220 words."
     )
     return "\n".join(lines)
 
 
-def call_gemini(prompt: str) -> dict[str, Any]:
+def call_gemini(prompt: str, response_schema: dict[str, Any] | None = None) -> dict[str, Any]:
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")
 
-    response_schema = {
+    default_explanation_schema = {
         "type": "OBJECT",
         "properties": {
             "explanation": {"type": "STRING"},
@@ -165,6 +169,7 @@ def call_gemini(prompt: str) -> dict[str, Any]:
         },
         "required": ["explanation", "advisory", "reports", "grounded_references"],
     }
+    selected_schema = response_schema or default_explanation_schema
 
     response = requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
@@ -173,7 +178,7 @@ def call_gemini(prompt: str) -> dict[str, Any]:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "responseMimeType": "application/json",
-                "responseSchema": response_schema,
+                "responseSchema": selected_schema,
             },
         },
         timeout=30,
@@ -197,9 +202,11 @@ def build_customer_chat_prompt(
     message: str,
     history: list[dict[str, Any]] | None = None,
     applicant_context: dict[str, Any] | None = None,
+    rag_context: list[dict[str, Any]] | None = None,
 ) -> str:
     history = history or []
     applicant_context = applicant_context or {}
+    rag_context = rag_context or []
 
     lines = [
         "You are a customer-facing loan advisory assistant for an AI-based loan decision system.",
@@ -211,6 +218,12 @@ def build_customer_chat_prompt(
     ]
     if applicant_context:
         lines.append(f"Applicant context: {json.dumps(applicant_context)}")
+    if rag_context:
+        lines.append("Relevant RBI guideline context:")
+        for item in rag_context[:4]:
+            lines.append(
+                f"- {item.get('category', 'RBI')} | {item.get('title', 'Guideline')}: {item.get('text', '')[:400]}"
+            )
     if history:
         lines.append("Conversation history:")
         for item in history[-10:]:
@@ -226,14 +239,25 @@ def chat_with_customer(
     message: str,
     history: list[dict[str, Any]] | None = None,
     applicant_context: dict[str, Any] | None = None,
+    rag_context: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    prompt = build_customer_chat_prompt(message, history, applicant_context)
+    prompt = build_customer_chat_prompt(message, history, applicant_context, rag_context)
     try:
-        response = call_gemini(prompt)
-        reply = response.get("raw_text", "").strip()
+        response = call_gemini(
+            prompt,
+            response_schema={
+                "type": "OBJECT",
+                "properties": {
+                    "reply": {"type": "STRING"},
+                },
+                "required": ["reply"],
+            },
+        )
+        parsed = response.get("parsed", {})
+        reply = parsed.get("reply") or response.get("raw_text", "").strip()
         if not reply:
             raise RuntimeError("Empty response from Gemini")
-        return {"reply": reply, "source": "gemini"}
+        return {"reply": reply, "source": "gemini", "rag_context": rag_context or []}
     except Exception:
         context_note = ""
         if applicant_context:
@@ -247,6 +271,7 @@ def chat_with_customer(
                 f"{context_note} Please tell me what you would like to understand."
             ),
             "source": "fallback",
+            "rag_context": rag_context or [],
         }
 
 
@@ -287,8 +312,10 @@ def build_reports(
     advisory: str,
     counter_offer: str | None,
     sample: dict[str, Any] | None = None,
+    rag_context: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     sample = sample or {}
+    rag_context = rag_context or []
     ranked = sorted(shap_explanation, key=lambda item: abs(float(item["importance"])), reverse=True)
     risk_drivers = [humanize_feature(item["feature"]).title() for item in ranked if float(item["importance"]) > 0][:3]
     support_drivers = [humanize_feature(item["feature"]).title() for item in ranked if float(item["importance"]) < 0][:3]
@@ -355,6 +382,8 @@ def build_reports(
             }
         )
 
+    reports.append(build_rbi_guidelines_report(decision, sample, rag_context, bool(explanation_text)))
+
     reports.append(
         {
             "title": "Model Explainability Report",
@@ -366,4 +395,65 @@ def build_reports(
         }
     )
 
+    return reports
+
+
+def build_rbi_guidelines_report(
+    decision: str,
+    sample: dict[str, Any],
+    rag_context: list[dict[str, Any]],
+    has_written_reason: bool,
+) -> dict[str, Any]:
+    bullets: list[str] = []
+    unmet: list[str] = []
+
+    if has_written_reason:
+        bullets.append("Right to Reason: satisfied because the borrower receives a written model-backed explanation.")
+    else:
+        unmet.append("Right to Reason")
+        bullets.append("Right to Reason: not yet satisfied because no written explanation has been produced.")
+
+    if decision == "Approved":
+        bullets.append("Cooling-Off Period: applicable for digital lending flows and should be communicated before final disbursement.")
+        unmet.append("Cooling-Off Period communication pending")
+
+    bullets.append("Key Fact Statement (KFS): borrower-facing KFS, APR disclosure, and acknowledgment should be captured before loan execution.")
+    unmet.append("KFS / APR / acknowledgment capture pending in current prototype")
+
+    income = float(sample.get("income") or 0)
+    if income:
+        if income <= 300000:
+            bullets.append("Microfinance income cap check: satisfied for the RBI microfinance threshold of up to Rs. 3 lakh annual household income.")
+        else:
+            bullets.append("Microfinance income cap check: not satisfied for microfinance products because annual income exceeds Rs. 3 lakh.")
+            unmet.append("Microfinance income eligibility")
+
+    if rag_context:
+        for item in rag_context[:3]:
+            title = item.get("title", "Guideline")
+            category = item.get("category", "RBI")
+            bullets.append(f"Retrieved RBI support: {category} | {title}.")
+
+    summary = (
+        "This report checks case-level alignment with retrieved RBI borrower-protection clauses. "
+        + ("Attention needed for: " + ", ".join(unmet) + "." if unmet else "No immediate RBI alignment gaps were detected from the available case data.")
+    )
+    return {
+        "title": "RBI Guidelines Alignment Report",
+        "audience": "User and Loan Officer",
+        "summary": summary,
+        "bullets": bullets,
+    }
+
+
+def ensure_rbi_report(reports: list[dict[str, Any]], fallback_reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    has_rbi = any(report.get("title") == "RBI Guidelines Alignment Report" for report in reports)
+    if has_rbi:
+        return reports
+    fallback_rbi = next(
+        (report for report in fallback_reports if report.get("title") == "RBI Guidelines Alignment Report"),
+        None,
+    )
+    if fallback_rbi:
+        return [*reports, fallback_rbi]
     return reports
