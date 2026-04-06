@@ -14,8 +14,10 @@ from pydantic import BaseModel
 
 from app.services import llm_service, ml_services, rag_service
 from app.utils.processor import FEATURE_ORDER, normalize_input
+from app.routers import upload as upload_router
 
 app = FastAPI(title="Explainable Loan Decision API")
+app.include_router(upload_router.router)
 
 
 class PredictRequest(BaseModel):
