@@ -1,0 +1,425 @@
+[
+  {
+    "id": 1,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "Direct Disbursement",
+    "text": "Direct Disbursement: Loans must flow from the lender's bank account directly to the borrower's account without any third-party pool accounts.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 2,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "LSP Transparency",
+    "text": "LSP Transparency: Regulated Entities (REs) must maintain an updated public website with a dedicated section listing all their Digital Lending products, DLAs, engaged LSPs and their respective roles. DLAs must clearly display the RE's name, loan terms, and applicable charges when presenting loan offers to borrowers, and must be linked back to the RE's website. Additionally, REs must ensure impartiality by displaying all matched loan offers without promoting any specific lender's product.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 3,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "Purpose-Limited & Auditable Consent",
+    "text": "Purpose-Limited & Auditable Consent: Regulated Entities (REs) must obtain borrower consent for data collection only for specific, necessary purposes — primarily credit assessment — and must maintain auditable records of such consent. Data collection must be minimal, transparent, and not reused beyond the original purpose without fresh consent.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 4,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "Cooling-Off Period",
+    "text": "Cooling-Off Period: Borrowers are entitled to a minimum 1-day cooling-off period after loan origination during which they may exit the loan without penalty — subject to payment of the principal amount and pro-rata interest. This period applies regardless of loan tenor and is designed to provide borrowers with a window to reconsider their commitment.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 5,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "Audit Trail",
+    "text": "Audit Trail: All interactions between the Lending Service Provider (LSP) and the borrower must be recorded and accessible for audit.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 6,
+    "category": "Category 1: Digital Lending & Fintech",
+    "category_note": "(RBI Digital Lending Directions, 2025 — effective May 2025)",
+    "title": "Multi-Lender Platforms (NEW)",
+    "text": "Multi-Lender Platforms (NEW): LSPs partnering with multiple lenders must disclose all potential lenders transparently and present loan offers without bias.  [UPDATED]",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": true
+  },
+  {
+    "id": 7,
+    "category": "Category 2: The New Key Fact Statement (KFS)",
+    "category_note": "(Mandatory from October 2024)",
+    "title": "Standardized KFS",
+    "text": "Standardized KFS: Every retail and MSME loan must include a one-page KFS summary before the loan agreement is signed.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 8,
+    "category": "Category 2: The New Key Fact Statement (KFS)",
+    "category_note": "(Mandatory from October 2024)",
+    "title": "APR Disclosure",
+    "text": "APR Disclosure: The KFS must show the Annual Percentage Rate (APR), which includes interest plus all mandatory fees like processing and insurance.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 9,
+    "category": "Category 2: The New Key Fact Statement (KFS)",
+    "category_note": "(Mandatory from October 2024)",
+    "title": "Zero Hidden Charges",
+    "text": "Zero Hidden Charges: Any fee (legal fees, valuation fees) not mentioned in the KFS cannot be charged to the borrower later.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 10,
+    "category": "Category 2: The New Key Fact Statement (KFS)",
+    "category_note": "(Mandatory from October 2024)",
+    "title": "Language Access",
+    "text": "Language Access: The KFS and loan terms must be provided in a language the borrower understands (English / Hindi / Vernacular).",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 11,
+    "category": "Category 2: The New Key Fact Statement (KFS)",
+    "category_note": "(Mandatory from October 2024)",
+    "title": "Acknowledge Receipt",
+    "text": "Acknowledge Receipt: Lenders must obtain the borrower’s explicit acknowledgment — either digital or physical — confirming they have understood the KFS contents before finalizing the loan agreement.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 12,
+    "category": "Category 3: Penalties & Interest Rates",
+    "category_note": "(Active 2024)",
+    "title": "Penal Charges, Not Interest",
+    "text": "Penal Charges, Not Interest: Lenders cannot charge 'Penal Interest' (which compounds). They can only charge a fixed 'Penal Charge' for defaults.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 13,
+    "category": "Category 3: Penalties & Interest Rates",
+    "category_note": "(Active 2024)",
+    "title": "No Penalty on Penalty",
+    "text": "No Penalty on Penalty: Penal charges cannot be added to the principal; therefore, no interest can be charged on the penalty itself.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 14,
+    "category": "Category 3: Penalties & Interest Rates",
+    "category_note": "(Active 2024)",
+    "title": "Floating Rate Switch",
+    "text": "Floating Rate Switch: During an interest rate hike, lenders must offer borrowers an option to switch to a Fixed Interest Rate.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 15,
+    "category": "Category 3: Penalties & Interest Rates",
+    "category_note": "(Active 2024)",
+    "title": "EMI vs. Tenor Choice",
+    "text": "EMI vs. Tenor Choice: Borrowers must be given the choice to either increase their EMI amount or elongate the loan duration when rates rise.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 16,
+    "category": "Category 3: Penalties & Interest Rates",
+    "category_note": "(Active 2024)",
+    "title": "External Benchmark Linking (EBLR)",
+    "text": "External Benchmark Linking (EBLR): Floating rate loans for individuals must be linked to an external benchmark (like the RBI Repo Rate) for transparency.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 17,
+    "category": "Category 4: Property Documents & Settlement",
+    "category_note": "(2024 Compliance)",
+    "title": "30-Day Document Release",
+    "text": "30-Day Document Release: Lenders must release all original movable/immovable property documents within 30 days of full loan repayment.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 18,
+    "category": "Category 4: Property Documents & Settlement",
+    "category_note": "(2024 Compliance)",
+    "title": "Delayed Release Penalty",
+    "text": "Delayed Release Penalty: If the bank fails to return original documents within 30 days, they must pay the borrower ₹5,000 per day of delay.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 19,
+    "category": "Category 4: Property Documents & Settlement",
+    "category_note": "(2024 Compliance)",
+    "title": "Loss of Documents",
+    "text": "Loss of Documents: In case of loss of original title deeds, the lender must pay for the duplicate copies AND pay compensation of ₹5,000/day after the 30-day limit.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 20,
+    "category": "Category 4: Property Documents & Settlement",
+    "category_note": "(2024 Compliance)",
+    "title": "Choice of Branch",
+    "text": "Choice of Branch: Borrowers must be given the option to collect their original movable and immovable property documents from either the branch where the loan was serviced or any other branch or office of the lender where the documents are available, as per the borrower’s preference.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 21,
+    "category": "Category 5: Credit Reporting & Scores",
+    "category_note": "(Effective January 2025)",
+    "title": "Fortnightly Reporting",
+    "text": "Fortnightly Reporting: Banks must update borrower data to Credit Bureaus (CIBIL, etc.) every 15 days (previously 30 days).",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 22,
+    "category": "Category 5: Credit Reporting & Scores",
+    "category_note": "(Effective January 2025)",
+    "title": "Free Credit Report",
+    "text": "Free Credit Report: Individuals are entitled to one Free Full Credit Report (FFCR) per year from every Credit Information Company.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 23,
+    "category": "Category 5: Credit Reporting & Scores",
+    "category_note": "(Effective January 2025)",
+    "title": "30-Day Correction Window",
+    "text": "30-Day Correction Window: Errors in credit reports must be rectified within 30 days of a complaint, or the bank/bureau pays compensation.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 24,
+    "category": "Category 5: Credit Reporting & Scores",
+    "category_note": "(Effective January 2025)",
+    "title": "Inquiry Alerts",
+    "text": "Inquiry Alerts: Lenders must send an SMS or Email alert to the borrower every time their credit report is accessed for a loan application.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 25,
+    "category": "Category 6: Recovery & Collection Ethics",
+    "category_note": "",
+    "title": "Calling Hours",
+    "text": "Calling Hours: Recovery agents can only contact borrowers between 08:00 AM and 07:00 PM.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 26,
+    "category": "Category 6: Recovery & Collection Ethics",
+    "category_note": "",
+    "title": "No Harassment",
+    "text": "No Harassment: NBFCs must avoid all forms of harassment — including use of muscle power, persistent contact at odd hours, or intimidation — during loan recovery. This applies across all channels, including digital messaging, to ensure fair and respectful treatment of borrowers.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 27,
+    "category": "Category 6: Recovery & Collection Ethics",
+    "category_note": "",
+    "title": "Agent ID",
+    "text": "Agent ID: Any agent visiting a borrower must carry a valid ID card and an authorization letter from the Bank/NBFC.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 28,
+    "category": "Category 6: Recovery & Collection Ethics",
+    "category_note": "",
+    "title": "Privacy Protection",
+    "text": "Privacy Protection: Recovery agents must not harass or intrude on the privacy of borrowers’ family, friends, or referees — including through inappropriate messages, threatening calls, or public disclosure of debt details.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 29,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Home, Gold, Cards)",
+    "title": "Gold Loan LTV",
+    "text": "Gold Loan LTV: The maximum Loan-to-Value (LTV) ratio for consumption loans against gold collateral is tiered:",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 30,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Home, Gold, Cards)",
+    "title": "Guideline",
+    "text": "85% for loans ≤ ₹2.5 lakh",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 31,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Home, Gold, Cards)",
+    "title": "Guideline",
+    "text": "80% for loans > ₹2.5 lakh and ≤ ₹5 lakh",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 32,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Home, Gold, Cards)",
+    "title": "Guideline",
+    "text": "75% for loans > ₹5 lakh",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 33,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Note: LTV must be maintained throughout the loan tenor.)",
+    "title": "Home Loan Foreclosure",
+    "text": "Home Loan Foreclosure: No foreclosure or prepayment penalties are allowed on floating-rate home loans for individuals.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 34,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Note: LTV must be maintained throughout the loan tenor.)",
+    "title": "Credit Card Billing Grace",
+    "text": "Credit Card Billing Grace: Borrowers get a 3-day grace period after the due date before they are reported as 'late' to credit bureaus.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 35,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Note: LTV must be maintained throughout the loan tenor.)",
+    "title": "Credit Card Closure",
+    "text": "Credit Card Closure: If a bank fails to close a credit card within 7 working days of a request, they pay a penalty of ₹500/day.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 36,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Note: LTV must be maintained throughout the loan tenor.)",
+    "title": "Unsolicited Card Upgrades",
+    "text": "Unsolicited Card Upgrades: Activating a credit card or upgrading a limit without explicit customer consent leads to a heavy RBI penalty on the bank.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 37,
+    "category": "Category 7: Specific Product Rules",
+    "category_note": "(Note: LTV must be maintained throughout the loan tenor.)",
+    "title": "Education Loan Moratorium",
+    "text": "Education Loan Moratorium: Repayment includes a mandatory moratorium of course duration + 1 year (12 months) — not 6 to 12 months. Banks may offer additional short-term moratoriums (up to 6 months at a time) for underemployment/unemployment, subject to discretion.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 38,
+    "category": "Category 8: Microfinance & KYC",
+    "category_note": "",
+    "title": "MFI Household Income",
+    "text": "MFI Household Income: Microfinance loans are restricted to households with an annual income up to ₹3 Lakh.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 39,
+    "category": "Category 8: Microfinance & KYC",
+    "category_note": "",
+    "title": "MFI Prepayment",
+    "text": "MFI Prepayment: No prepayment penalty is allowed on any microfinance loan, regardless of the interest rate type.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 40,
+    "category": "Category 8: Microfinance & KYC",
+    "category_note": "",
+    "title": "V-CIP (Video KYC)",
+    "text": "V-CIP (Video KYC): Video-based KYC is legally equivalent to physical face-to-face verification for loan onboarding.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 41,
+    "category": "Category 8: Microfinance & KYC",
+    "category_note": "",
+    "title": "Small Account Limits",
+    "text": "Small Account Limits: KYC-lite (Small) accounts have a balance limit of ₹50,000 and total credits of ₹1 Lakh per year.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 42,
+    "category": "Category 8: Microfinance & KYC",
+    "category_note": "",
+    "title": "Dormant Account Charging",
+    "text": "Dormant Account Charging: Banks are not permitted to levy any penal charges — including for non-maintenance of minimum balance — on accounts classified as inoperative. Dormancy alone does not justify fees; only customer-initiated transactions reactivate the account.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 43,
+    "category": "Category 9: Grievance Redressal",
+    "category_note": "",
+    "title": "Integrated Ombudsman",
+    "text": "Integrated Ombudsman: If a complaint is not resolved by the bank within 30 days, the borrower can escalate to the RBI Ombudsman via the CMS portal (https://cms.rbi.org.in) or by physical complaint.  [UPDATED]",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": true
+  },
+  {
+    "id": 44,
+    "category": "Category 9: Grievance Redressal",
+    "category_note": "",
+    "title": "Internal Ombudsman",
+    "text": "Internal Ombudsman: Large NBFCs and Banks must appoint an Internal Ombudsman to review all rejected customer complaints.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 45,
+    "category": "Category 9: Grievance Redressal",
+    "category_note": "",
+    "title": "Nodal Officer",
+    "text": "Nodal Officer: Only Lending Service Providers (LSPs) with direct borrower interface must appoint a dedicated Nodal Grievance Redressal Officer — their contact details must be accessible via the app. The regulated entity (RE) remains ultimately accountable for all complaints, regardless of LSP involvement.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 46,
+    "category": "Category 9: Grievance Redressal",
+    "category_note": "",
+    "title": "Right to Reason",
+    "text": "Right to Reason: A borrower has the right to know the specific reason for a loan application rejection in writing.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  },
+  {
+    "id": 47,
+    "category": "Category 9: Grievance Redressal",
+    "category_note": "",
+    "title": "Wilful Defaulter Notice",
+    "text": "Wilful Defaulter Notice: The bank must issue a 21-day show-cause notice to the borrower. After the Identification Committee reviews the response, the Review Committee provides 15 days for written representation and offers a personal hearing before making a final decision.",
+    "source": "RBI Borrower Protection Guidelines (Updated March 2026)",
+    "updated": false
+  }
+]

@@ -41,6 +41,7 @@ def build_compliance_prompt(
     form_data: Dict[str, Any],
     mismatches: Dict[str, Any],
     rag_contexts: List[Dict[str, Any]],
+    extraction_assessment: Dict[str, Any] | None = None,
 ) -> str:
     """Construct the LLM prompt for the compliance report."""
     rag_text = "\n".join(
@@ -48,6 +49,8 @@ def build_compliance_prompt(
         for hit in rag_contexts
         if isinstance(hit.get("payload"), dict) and hit["payload"].get("text")
     ) or "No specific RBI guidelines retrieved for this query."
+
+    extraction_text = json.dumps(extraction_assessment or {}, indent=2)
 
     return f"""You are an RBI compliance officer reviewing a retail loan application.
 
@@ -60,6 +63,9 @@ def build_compliance_prompt(
 ## Detected Mismatches
 {json.dumps(mismatches, indent=2)}
 
+## Extraction Quality Assessment
+{extraction_text}
+
 ## Relevant RBI Guidelines (retrieved from internal knowledge base)
 {rag_text}
 
@@ -68,7 +74,7 @@ Analyse the data above and produce a compliance report in the exact JSON schema 
 Do NOT include any text outside the JSON block.
 
 {{
-  "compliance_status": "Compliant" | "Not Compliant",
+  "compliance_status": "Compliant" | "Not Compliant" | "Manual Review Required",
   "reasons": ["<specific reason referencing guideline or data>", ...],
   "verification": {{
     "income":       {{"declared": <number|null>, "extracted": <number|null>, "status": "Match" | "Mismatch" | "Unavailable"}},
@@ -80,12 +86,15 @@ Do NOT include any text outside the JSON block.
   "counter_offer": null | {{
     "description": "<brief description of alternate offer>",
     "conditions":  ["<condition 1>", ...]
-  }}
+  }},
+  "manual_review_required": true | false,
+  "warnings": ["<warning about extraction quality or missing data>", ...]
 }}
 
 Rules:
 - Base compliance determination strictly on the RBI guidelines provided above.
 - Do not invent guidelines not present in the retrieved context.
+- If extraction_quality reports missing critical fields or review_required=true, set compliance_status to "Manual Review Required".
 - Include a counter_offer only when the application is borderline (minor issues fixable within 6 months).
 - Keep each reason and recommendation to one concise sentence."""
 
@@ -99,6 +108,7 @@ def generate_compliance_report(
     form_data: Dict[str, Any],
     mismatches: Dict[str, Any],
     rag_contexts: List[Dict[str, Any]],
+    extraction_assessment: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """
     Generate an RBI compliance report.
@@ -106,7 +116,7 @@ def generate_compliance_report(
     Calls Gemini when GEMINI_API_KEY is available; falls back to rule-based
     logic otherwise so the endpoint always returns a structured response.
     """
-    prompt = build_compliance_prompt(extracted, form_data, mismatches, rag_contexts)
+    prompt = build_compliance_prompt(extracted, form_data, mismatches, rag_contexts, extraction_assessment)
 
     if _GEMINI_API_KEY:
         try:
@@ -126,7 +136,7 @@ def generate_compliance_report(
             import logging
             logging.getLogger(__name__).warning("Gemini call failed: %s", exc)
 
-    return _rule_based_compliance(extracted, form_data, mismatches)
+    return _rule_based_compliance(extracted, form_data, mismatches, extraction_assessment)
 
 
 # ---------------------------------------------------------------------------
@@ -137,12 +147,25 @@ def _rule_based_compliance(
     extracted: Dict[str, Any],
     form_data: Dict[str, Any],
     mismatches: Dict[str, Any],
+    extraction_assessment: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Deterministic compliance report used when Gemini is unavailable."""
     reasons: list[str] = []
     recommendations: list[str] = []
+    warnings = list((extraction_assessment or {}).get("warnings", []))
 
     mismatch_map = mismatches.get("mismatches", mismatches)  # tolerate both shapes
+    manual_review_required = bool((extraction_assessment or {}).get("review_required"))
+
+    if manual_review_required:
+        missing = ", ".join((extraction_assessment or {}).get("missing_critical_fields", []))
+        reasons.append(
+            "Critical document fields could not be extracted reliably"
+            + (f": {missing}." if missing else ".")
+        )
+        recommendations.append(
+            "Request manual review or upload a clearer supported document before making a compliance decision."
+        )
 
     if mismatch_map.get("income_mismatch"):
         diff = mismatch_map["income_mismatch"]["difference_pct"]
@@ -181,7 +204,7 @@ def _rule_based_compliance(
             "Improve credit score by clearing overdue payments and reducing credit utilisation."
         )
 
-    is_compliant = len(reasons) == 0
+    is_compliant = len(reasons) == 0 and not manual_review_required
 
     # Build verification block
     income_status = (
@@ -214,7 +237,11 @@ def _rule_based_compliance(
         }
 
     return {
-        "compliance_status": "Compliant" if is_compliant else "Not Compliant",
+        "compliance_status": (
+            "Manual Review Required"
+            if manual_review_required
+            else ("Compliant" if is_compliant else "Not Compliant")
+        ),
         "reasons": reasons,
         "verification": {
             "income": {
@@ -238,4 +265,6 @@ def _rule_based_compliance(
         },
         "recommendations": recommendations or ["Application meets all basic compliance requirements."],
         "counter_offer": counter_offer,
+        "manual_review_required": manual_review_required,
+        "warnings": warnings,
     }
