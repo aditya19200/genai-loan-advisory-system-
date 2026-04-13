@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import ensure_directories
-from app.schemas import ChatMessage, ChatRequest, ChatResponse, ExplanationResponse, FeedbackInput, PredictionInput, PredictionResponse
+from app.config import UPLOADS_DIR, ensure_directories
+from app.schemas import ChatMessage, ChatRequest, ChatResponse, DocumentUploadRequest, ExplanationResponse, FeedbackInput, PredictionInput, PredictionResponse
 from backend_services.llm_service import chat_with_customer
 from backend_services.pipeline import PredictionService
 from database.sqlite_db import DatabaseManager
+from rag.document_policy import extract_pdf_text
 from rag.retriever import get_rbi_knowledge_base
 
 
@@ -85,8 +88,43 @@ def get_prediction(request_id: str):
         "model_version": row["model_version"],
         "decision": row.get("decision"),
         "risk_score": row.get("probability"),
-        "input_payload": __import__("json").loads(row["input_payload"]),
+        "input_payload": json.loads(row["input_payload"]),
         "created_at": row["created_at"],
+    }
+
+
+@app.post("/documents/{request_id}/upload")
+def upload_document(request_id: str, payload: DocumentUploadRequest):
+    prediction_row = db.fetch_one("predictions", request_id)
+    if not prediction_row:
+        raise HTTPException(status_code=404, detail="Prediction request not found")
+    if not payload.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF documents are supported for document-to-policy RAG")
+    file_bytes = payload.decoded_bytes()
+    extraction = extract_pdf_text(file_bytes)
+    extracted_text = extraction.get("text", "")
+    if not extracted_text:
+        raise HTTPException(status_code=400, detail=extraction.get("details") or "The uploaded PDF did not contain extractable text")
+
+    target_dir = Path(UPLOADS_DIR) / request_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / Path(payload.filename).name
+    target_path.write_bytes(file_bytes)
+    db.upsert_uploaded_document(
+        request_id,
+        Path(payload.filename).name,
+        str(target_path),
+        extracted_text,
+        extraction.get("source", "unavailable"),
+        extraction.get("details", ""),
+    )
+    return {
+        "status": "stored",
+        "request_id": request_id,
+        "filename": Path(payload.filename).name,
+        "extracted_characters": len(extracted_text),
+        "extraction_source": extraction.get("source", "unavailable"),
+        "extraction_details": extraction.get("details", ""),
     }
 
 
@@ -94,6 +132,18 @@ def get_prediction(request_id: str):
 def explain(payload: PredictionInput) -> ExplanationResponse:
     result = service.explain_input(payload)
     return ExplanationResponse(**result)
+
+
+@app.post("/explanations/{request_id}/generate-sync", response_model=ExplanationResponse)
+def generate_explanation_sync(request_id: str) -> ExplanationResponse:
+    row = db.fetch_one("predictions", request_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Prediction request not found")
+    service.generate_explanation(request_id, True)
+    explanation_row = db.fetch_one("explanations", request_id)
+    if not explanation_row:
+        raise HTTPException(status_code=404, detail="Explanation request not found")
+    return ExplanationResponse(**service._compose_explanation_response(request_id, explanation_row))
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -134,7 +184,9 @@ def regenerate_explanation(request_id: str, background_tasks: BackgroundTasks):
                 sentiment = NULL, explanation_text = NULL, advisory = NULL, counter_offer = NULL, reports = NULL,
                 explanation_source = NULL, reports_source = NULL,
                 rag_source = NULL,
-                llm_response = NULL, rag_context = NULL, generation_time_ms = NULL, generated_at = NULL
+                document_rag_source = NULL, document_extraction_source = NULL, document_report_source = NULL,
+                llm_response = NULL, rag_context = NULL, document_rag_context = NULL,
+                uploaded_document_name = NULL, generation_time_ms = NULL, generated_at = NULL
             WHERE request_id = ?
             """,
             ("pending", request_id),

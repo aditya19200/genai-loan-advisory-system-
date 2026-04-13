@@ -58,8 +58,13 @@ class DatabaseManager:
                     explanation_source TEXT,
                     reports_source TEXT,
                     rag_source TEXT,
+                    document_rag_source TEXT,
+                    document_extraction_source TEXT,
+                    document_report_source TEXT,
                     llm_response TEXT,
                     rag_context TEXT,
+                    document_rag_context TEXT,
+                    uploaded_document_name TEXT,
                     generation_time_ms REAL,
                     generated_at TEXT
                 )
@@ -77,8 +82,13 @@ class DatabaseManager:
                 ("explanation_source", "TEXT"),
                 ("reports_source", "TEXT"),
                 ("rag_source", "TEXT"),
+                ("document_rag_source", "TEXT"),
+                ("document_extraction_source", "TEXT"),
+                ("document_report_source", "TEXT"),
                 ("llm_response", "TEXT"),
                 ("rag_context", "TEXT"),
+                ("document_rag_context", "TEXT"),
+                ("uploaded_document_name", "TEXT"),
             ]:
                 if column_name not in columns:
                     cursor.execute(f"ALTER TABLE explanations ADD COLUMN {column_name} {column_type}")
@@ -120,6 +130,23 @@ class DatabaseManager:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS uploaded_documents (
+                    request_id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    extracted_text TEXT NOT NULL,
+                    extraction_source TEXT,
+                    extraction_details TEXT,
+                    uploaded_at TEXT NOT NULL
+                )
+                """
+            )
+            uploaded_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(uploaded_documents)").fetchall()}
+            for column_name, column_type in [("extraction_source", "TEXT"), ("extraction_details", "TEXT")]:
+                if column_name not in uploaded_columns:
+                    cursor.execute(f"ALTER TABLE uploaded_documents ADD COLUMN {column_name} {column_type}")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS counterfactuals (
@@ -167,7 +194,8 @@ class DatabaseManager:
                 UPDATE explanations
                 SET status = ?, decision = ?, risk_score = ?, shap_global = ?, shap_local = ?, sentiment = ?,
                     explanation_text = ?, advisory = ?, counter_offer = ?, reports = ?, explanation_source = ?, reports_source = ?,
-                    rag_source = ?, llm_response = ?, rag_context = ?,
+                    rag_source = ?, document_rag_source = ?, document_extraction_source = ?, document_report_source = ?,
+                    llm_response = ?, rag_context = ?, document_rag_context = ?, uploaded_document_name = ?,
                     generation_time_ms = ?, generated_at = ?
                 WHERE request_id = ?
                 """,
@@ -185,8 +213,13 @@ class DatabaseManager:
                     payload.get("explanation_source", "fallback"),
                     payload.get("reports_source", "fallback"),
                     payload.get("rag_source", "unavailable"),
+                    payload.get("document_rag_source", "unavailable"),
+                    payload.get("document_extraction_source", "unavailable"),
+                    payload.get("document_report_source", "fallback"),
                     json.dumps(payload.get("llm_response", {})),
                     json.dumps(payload.get("rag_context", [])),
+                    json.dumps(payload.get("document_rag_context", [])),
+                    payload.get("uploaded_document_name"),
                     generation_time_ms,
                     datetime.now(timezone.utc).isoformat(),
                     request_id,
@@ -250,6 +283,42 @@ class DatabaseManager:
                 """,
                 (request_id, rating, comment, datetime.now(timezone.utc).isoformat()),
             )
+
+    def upsert_uploaded_document(
+        self,
+        request_id: str,
+        filename: str,
+        file_path: str,
+        extracted_text: str,
+        extraction_source: str,
+        extraction_details: str,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO uploaded_documents (request_id, filename, file_path, extracted_text, extraction_source, extraction_details, uploaded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(request_id) DO UPDATE SET
+                    filename = excluded.filename,
+                    file_path = excluded.file_path,
+                    extracted_text = excluded.extracted_text,
+                    extraction_source = excluded.extraction_source,
+                    extraction_details = excluded.extraction_details,
+                    uploaded_at = excluded.uploaded_at
+                """,
+                (
+                    request_id,
+                    filename,
+                    file_path,
+                    extracted_text,
+                    extraction_source,
+                    extraction_details,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
+    def fetch_uploaded_document(self, request_id: str) -> dict[str, Any] | None:
+        return self.fetch_one("uploaded_documents", request_id)
 
     def upsert_counterfactual(self, request_id: str, status: str, result: dict[str, Any] | None = None, error_message: str | None = None, generation_time_ms: float | None = None) -> None:
         with self.connect() as conn:

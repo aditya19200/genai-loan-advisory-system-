@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 import os
 
@@ -61,6 +62,15 @@ def api_post(path: str, payload: dict):
     except requests.RequestException as exc:
         show_backend_help(exc)
         st.stop()
+
+
+def api_post_file(path: str, file_name: str, file_bytes: bytes, content_type: str = "application/pdf"):
+    del content_type
+    payload = {
+        "filename": file_name,
+        "file_content_base64": base64.b64encode(file_bytes).decode("utf-8"),
+    }
+    return api_post(path, payload)
 
 
 def format_timestamp(value: str) -> str:
@@ -132,6 +142,18 @@ def render_rag_context(items: list[dict], title: str = "RBI Grounding") -> None:
             st.write(item.get("text", ""))
             if "score" in item:
                 st.caption(f"Similarity score: {float(item['score']):.3f}")
+
+
+def render_uploaded_document_status() -> None:
+    document_meta = st.session_state.get("uploaded_document_meta", {})
+    if document_meta:
+        st.info(
+            f"Uploaded document: {document_meta.get('filename')} | "
+            f"Extracted characters: {document_meta.get('extracted_characters')} | "
+            f"Extraction source: {document_meta.get('extraction_source', 'unavailable')}"
+        )
+        if document_meta.get("extraction_details"):
+            st.caption(f"Document extraction details: {document_meta.get('extraction_details')}")
 
 
 def render_rag_status() -> None:
@@ -207,6 +229,7 @@ elif page == "Loan assessment":
         tenure_months = st.number_input("Tenure (months)", min_value=1, value=36, step=1)
         ask_explain = st.checkbox("Request explanation/advisory", value=True)
         user_text = st.text_area("User message", value="Please explain the decision.")
+        uploaded_pdf = st.file_uploader("Upload loan document for document-to-policy RAG (PDF)", type=["pdf"])
         submitted = st.form_submit_button("Assess loan")
 
     if submitted:
@@ -225,12 +248,39 @@ elif page == "Loan assessment":
         result = api_post("/predict", payload)
         st.session_state["latest_payload"] = payload
         st.session_state["latest_request_id"] = result["request_id"]
+        st.session_state["uploaded_document_meta"] = {}
+        if uploaded_pdf is not None:
+            upload_result = api_post_file(
+                f"/documents/{result['request_id']}/upload",
+                uploaded_pdf.name,
+                uploaded_pdf.getvalue(),
+            )
+            st.session_state["uploaded_document_meta"] = upload_result
+            if ask_explain:
+                explanation_result = api_post(f"/explanations/{result['request_id']}/generate-sync", {})
+                st.session_state["latest_explanation_context"] = {
+                    "request_id": explanation_result.get("request_id"),
+                    "decision": explanation_result.get("decision"),
+                    "risk_score": explanation_result.get("risk_score"),
+                    "explanation_text": explanation_result.get("explanation_text"),
+                    "advisory": explanation_result.get("advisory"),
+                    "counter_offer": explanation_result.get("counter_offer"),
+                    "reports": explanation_result.get("reports", []),
+                    "rag_context": explanation_result.get("rag_context", []),
+                    "document_rag_context": explanation_result.get("document_rag_context", []),
+                    "document_rag_source": explanation_result.get("document_rag_source", "unavailable"),
+                    "document_extraction_source": explanation_result.get("document_extraction_source", "unavailable"),
+                    "document_report_source": explanation_result.get("document_report_source", "fallback"),
+                    "uploaded_document_name": explanation_result.get("uploaded_document_name"),
+                }
         st.success(f"Decision: {result['decision']} | Risk score: {result['risk_score']:.3f}")
         st.caption(f"Request ID: {result['request_id']} | Explanation status: {result['explanation_status']}")
+        render_uploaded_document_status()
 
 elif page == "Explainability":
     st.subheader("SHAP explanation and advisory")
     render_rag_status()
+    render_uploaded_document_status()
     request_id = st.text_input("Request ID", value=st.session_state.get("latest_request_id", ""))
     col1, col2 = st.columns(2)
     if col1.button("Refresh async explanation") and request_id:
@@ -244,7 +294,10 @@ elif page == "Explainability":
             st.caption(
                 f"Explanation source: {data.get('explanation_source', 'fallback')} | "
                 f"Reports source: {data.get('reports_source', 'fallback')} | "
-                f"RAG source: {data.get('rag_source', 'unavailable')}"
+                f"RAG source: {data.get('rag_source', 'unavailable')} | "
+                f"Document RAG source: {data.get('document_rag_source', 'unavailable')} | "
+                f"Document extraction source: {data.get('document_extraction_source', 'unavailable')} | "
+                f"Document report source: {data.get('document_report_source', 'fallback')}"
             )
             st.session_state["latest_explanation_context"] = {
                 "request_id": request_id,
@@ -257,9 +310,15 @@ elif page == "Explainability":
                 "reports_source": data.get("reports_source", "fallback"),
                 "rag_source": data.get("rag_source", "unavailable"),
                 "rag_context": data.get("rag_context", []),
+                "document_rag_context": data.get("document_rag_context", []),
+                "document_rag_source": data.get("document_rag_source", "unavailable"),
+                "document_extraction_source": data.get("document_extraction_source", "unavailable"),
+                "document_report_source": data.get("document_report_source", "fallback"),
+                "uploaded_document_name": data.get("uploaded_document_name"),
             }
             render_reports(data.get("reports", []))
             render_rag_context(data.get("rag_context", []))
+            render_rag_context(data.get("document_rag_context", []), title="Uploaded Document To RBI Grounding")
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
             render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
             st.write(f"Sentiment: {data['sentiment']}")
@@ -286,16 +345,26 @@ elif page == "Explainability":
                 "counter_offer": data.get("counter_offer"),
                 "explanation_source": data.get("explanation_source", "fallback"),
                 "reports_source": data.get("reports_source", "fallback"),
+                "rag_source": data.get("rag_source", "unavailable"),
                 "rag_context": data.get("rag_context", []),
+                "document_rag_context": data.get("document_rag_context", []),
+                "document_rag_source": data.get("document_rag_source", "unavailable"),
+                "document_extraction_source": data.get("document_extraction_source", "unavailable"),
+                "document_report_source": data.get("document_report_source", "fallback"),
+                "uploaded_document_name": data.get("uploaded_document_name"),
             }
             st.success(f"{data['decision']} | Risk score: {data['risk_score']:.3f}")
             st.caption(
                 f"Explanation source: {data.get('explanation_source', 'fallback')} | "
                 f"Reports source: {data.get('reports_source', 'fallback')} | "
-                f"RAG source: {data.get('rag_source', 'unavailable')}"
+                f"RAG source: {data.get('rag_source', 'unavailable')} | "
+                f"Document RAG source: {data.get('document_rag_source', 'unavailable')} | "
+                f"Document extraction source: {data.get('document_extraction_source', 'unavailable')} | "
+                f"Document report source: {data.get('document_report_source', 'fallback')}"
             )
             render_reports(data.get("reports", []))
             render_rag_context(data.get("rag_context", []))
+            render_rag_context(data.get("document_rag_context", []), title="Uploaded Document To RBI Grounding")
             render_horizontal_explanation_chart("Global SHAP importance", data["shap_global"])
             render_horizontal_explanation_chart("Local SHAP explanation", data["shap_local"])
             st.info(data["explanation_text"])
@@ -379,6 +448,11 @@ elif page == "Customer Chat":
                 "counter_offer": data.get("counter_offer"),
                 "reports": data.get("reports", []),
                 "rag_context": data.get("rag_context", []),
+                "document_rag_context": data.get("document_rag_context", []),
+                "document_rag_source": data.get("document_rag_source", "unavailable"),
+                "document_extraction_source": data.get("document_extraction_source", "unavailable"),
+                "document_report_source": data.get("document_report_source", "fallback"),
+                "uploaded_document_name": data.get("uploaded_document_name"),
             }
             st.success("Latest explanation and reports loaded into chat.")
         else:
@@ -399,6 +473,11 @@ elif page == "Customer Chat":
                 "counter_offer": data.get("counter_offer"),
                 "reports": data.get("reports", []),
                 "rag_context": data.get("rag_context", []),
+                "document_rag_context": data.get("document_rag_context", []),
+                "document_rag_source": data.get("document_rag_source", "unavailable"),
+                "document_extraction_source": data.get("document_extraction_source", "unavailable"),
+                "document_report_source": data.get("document_report_source", "fallback"),
+                "uploaded_document_name": data.get("uploaded_document_name"),
             }
             st.success("Selected request context and reports loaded into chat.")
         else:

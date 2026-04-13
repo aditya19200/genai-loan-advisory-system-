@@ -11,6 +11,7 @@ MODELS_DIR = ARTIFACTS_DIR / "models"
 METRICS_DIR = ARTIFACTS_DIR / "metrics"
 EXPLANATIONS_DIR = ARTIFACTS_DIR / "explanations"
 RAG_DIR = ARTIFACTS_DIR / "rag"
+UPLOADS_DIR = ARTIFACTS_DIR / "uploads"
 DOCS_DIR = BASE_DIR / "docs"
 REPORTS_DIR = BASE_DIR / "reports"
 DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "database" / "xai_finance.db")))
@@ -44,6 +45,7 @@ def ensure_directories() -> None:
         METRICS_DIR,
         EXPLANATIONS_DIR,
         RAG_DIR,
+        UPLOADS_DIR,
         DOCS_DIR,
         REPORTS_DIR,
         DB_PATH.parent,

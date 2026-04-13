@@ -136,6 +136,27 @@ def build_explanation_prompt(
     return "\n".join(lines)
 
 
+def build_document_compliance_prompt(
+    filename: str,
+    document_text: str,
+    rag_context: list[dict[str, Any]],
+) -> str:
+    lines = [
+        "You are evaluating an uploaded loan document against RBI borrower-protection policies.",
+        "Do not invent compliance. Only use document evidence and retrieved RBI clauses.",
+        f"Filename: {filename}",
+        f"Document text excerpt: {document_text[:5000]}",
+        "Retrieved RBI clauses:",
+    ]
+    for item in rag_context[:4]:
+        lines.append(f"- {item.get('category', 'RBI')} | {item.get('title', 'Guideline')}: {item.get('text', '')[:500]}")
+    lines.append(
+        "Return valid JSON with keys summary, satisfied, missing, unclear, evidence. "
+        "Each of satisfied, missing, unclear, evidence must be a list of strings."
+    )
+    return "\n".join(lines)
+
+
 def call_gemini(prompt: str, response_schema: dict[str, Any] | None = None) -> dict[str, Any]:
     if not GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not configured")

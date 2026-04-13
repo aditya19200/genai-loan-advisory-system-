@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from typing import Any
 
@@ -45,8 +46,13 @@ class ExplanationResponse(BaseModel):
     explanation_source: str = "fallback"
     reports_source: str = "fallback"
     rag_source: str = "unavailable"
+    document_rag_source: str = "unavailable"
+    document_extraction_source: str = "unavailable"
+    document_report_source: str = "fallback"
     llm_response: dict[str, Any] = Field(default_factory=dict)
     rag_context: list[dict[str, Any]] = Field(default_factory=list)
+    document_rag_context: list[dict[str, Any]] = Field(default_factory=list)
+    uploaded_document_name: str | None = None
     generated_at: datetime | None = None
 
 
@@ -59,6 +65,14 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     history: list[ChatMessage] = Field(default_factory=list)
     applicant_context: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentUploadRequest(BaseModel):
+    filename: str = Field(..., min_length=1)
+    file_content_base64: str = Field(..., min_length=1)
+
+    def decoded_bytes(self) -> bytes:
+        return base64.b64decode(self.file_content_base64)
 
 
 class ChatResponse(BaseModel):

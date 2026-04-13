@@ -9,6 +9,7 @@ from typing import Any
 from app.schemas import PredictionInput
 from audit.logger import AuditLogger
 from backend_services.llm_service import (
+    build_document_compliance_prompt,
     build_explanation_prompt,
     build_rule_based_response,
     call_gemini,
@@ -22,6 +23,7 @@ from explainability.engine import ExplainabilityEngine
 from models.registry import ModelRegistry
 from models.training import ModelTrainer, load_registered_model
 from monitoring.service import MonitoringService
+from rag.document_policy import build_document_rag_query, fallback_document_report
 from rag.retriever import build_rag_query, get_rbi_knowledge_base
 
 
@@ -151,6 +153,61 @@ class PredictionService:
             explanation_source = "gemini" if parsed.get("explanation") else "fallback"
             reports = ensure_rbi_report(parsed.get("reports") or fallback["reports"], fallback["reports"])
             reports_source = "gemini" if parsed.get("reports") else "fallback"
+            uploaded_document = self.db.fetch_uploaded_document(request_id)
+            document_rag_context: list[dict[str, Any]] = []
+            document_rag_source = "unavailable"
+            document_extraction_source = "unavailable"
+            document_report_source = "fallback"
+            uploaded_document_name = None
+            if uploaded_document:
+                uploaded_document_name = uploaded_document.get("filename")
+                document_extraction_source = uploaded_document.get("extraction_source") or "unavailable"
+                document_rag_context = self.rag.retrieve(
+                    build_document_rag_query(uploaded_document.get("extracted_text", ""), input_payload.get("user_text"))
+                )
+                document_rag_source = "retrieved" if document_rag_context else "unavailable"
+                document_report = fallback_document_report(
+                    uploaded_document_name or "uploaded.pdf",
+                    uploaded_document.get("extracted_text", ""),
+                    document_rag_context,
+                )
+                try:
+                    compliance_response = call_gemini(
+                        build_document_compliance_prompt(
+                            uploaded_document_name or "uploaded.pdf",
+                            uploaded_document.get("extracted_text", ""),
+                            document_rag_context,
+                        ),
+                        response_schema={
+                            "type": "OBJECT",
+                            "properties": {
+                                "summary": {"type": "STRING"},
+                                "satisfied": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                "missing": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                "unclear": {"type": "ARRAY", "items": {"type": "STRING"}},
+                                "evidence": {"type": "ARRAY", "items": {"type": "STRING"}},
+                            },
+                            "required": ["summary", "satisfied", "missing", "unclear", "evidence"],
+                        },
+                    )
+                    compliance_parsed = compliance_response.get("parsed", {})
+                    if compliance_parsed.get("summary"):
+                        bullets = (
+                            [*(f"Satisfied: {item}" for item in compliance_parsed.get("satisfied", []))]
+                            + [*(f"Missing: {item}" for item in compliance_parsed.get("missing", []))]
+                            + [*(f"Unclear: {item}" for item in compliance_parsed.get("unclear", []))]
+                            + [*(f"Evidence: {item}" for item in compliance_parsed.get("evidence", [])[:4])]
+                        )
+                        document_report = {
+                            "title": "Uploaded Document Compliance Report",
+                            "audience": "User and Loan Officer",
+                            "summary": compliance_parsed["summary"],
+                            "bullets": bullets,
+                        }
+                        document_report_source = "gemini"
+                except Exception:
+                    pass
+                reports = [*reports, document_report]
 
             duration_ms = (time.perf_counter() - started) * 1000
             payload = {
@@ -166,8 +223,13 @@ class PredictionService:
                 "explanation_source": explanation_source,
                 "reports_source": reports_source,
                 "rag_source": rag_source,
+                "document_rag_source": document_rag_source,
+                "document_extraction_source": document_extraction_source,
+                "document_report_source": document_report_source,
                 "llm_response": llm_response,
                 "rag_context": rag_context,
+                "document_rag_context": document_rag_context,
+                "uploaded_document_name": uploaded_document_name,
             }
             self.db.insert_explanation(request_id, payload, duration_ms)
             self.monitoring.record_explanation(request_id, duration_ms, None)
@@ -199,7 +261,12 @@ class PredictionService:
             "explanation_source": row.get("explanation_source") or "fallback",
             "reports_source": row.get("reports_source") or "fallback",
             "rag_source": row.get("rag_source") or "unavailable",
+            "document_rag_source": row.get("document_rag_source") or "unavailable",
+            "document_extraction_source": row.get("document_extraction_source") or "unavailable",
+            "document_report_source": row.get("document_report_source") or "fallback",
             "llm_response": json.loads(row.get("llm_response") or "{}"),
             "rag_context": json.loads(row.get("rag_context") or "[]"),
+            "document_rag_context": json.loads(row.get("document_rag_context") or "[]"),
+            "uploaded_document_name": row.get("uploaded_document_name"),
             "generated_at": datetime.fromisoformat(row["generated_at"]) if row.get("generated_at") else None,
         }
