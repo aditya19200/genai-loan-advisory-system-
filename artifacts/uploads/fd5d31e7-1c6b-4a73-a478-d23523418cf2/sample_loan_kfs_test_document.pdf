@@ -1,0 +1,56 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1131 >>
+stream
+BT
+/F1 12 Tf
+50 780 Td
+14 TL
+(Loan Sanction and Key Fact Statement Test Document) Tj
+T* () Tj
+T* (Borrower Name: Test Applicant) Tj
+T* (Age: 32) Tj
+T* (Requested Loan Amount: INR 300000) Tj
+T* (Tenure: 36 months) Tj
+T* (Interest Rate: 18.5 percent per annum) Tj
+T* (Processing Fee: INR 2500) Tj
+T* () Tj
+T* (Compliance Notes:) Tj
+T* (1. A Key Fact Statement will be provided before execution of the loan agreement.) Tj
+T* (2. The borrower will have a cooling-off period of 3 days to exit the digital loan.) Tj
+T* (3. All fees and charges will be disclosed upfront in the Key Fact Statement.) Tj
+T* (4. The grievance redressal officer contact is not mentioned in this document.) Tj
+T* (5. Penal charges may apply for late payment, but the exact penal charge policy is not shown here.) Tj
+T* (6. The APR is not explicitly written as a single combined annualized percentage rate.) Tj
+T* () Tj
+T* (Purpose of this document:) Tj
+T* (This sample document is intentionally mixed. Some RBI-aligned disclosures are present, while) Tj
+T* (other items are missing or incomplete so the Uploaded Document Compliance Report can flag them.) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1494
+%%EOF

@@ -1,0 +1,63 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 582 >>
+stream
+BT
+/F1 12 Tf
+72 800 Td
+(Bank Statement) Tj
+72 762 Td
+(Account Statement) Tj
+0 -18 Td
+72 744 Td
+(Opening Balance 12,000) Tj
+0 -18 Td
+72 726 Td
+(01 Jan 2026 Salary Credit Payroll 35,000.00) Tj
+0 -18 Td
+72 708 Td
+(01 Feb 2026 Salary Credit Payroll 35,500.00) Tj
+0 -18 Td
+72 690 Td
+(01 Mar 2026 Salary Credit Payroll 36,000.00) Tj
+0 -18 Td
+72 672 Td
+(07 Jan 2026 Loan EMI Auto Debit 22,000.00) Tj
+0 -18 Td
+72 654 Td
+(07 Feb 2026 Loan EMI Auto Debit 22,000.00) Tj
+0 -18 Td
+72 636 Td
+(07 Mar 2026 Loan EMI Auto Debit 22,000.00) Tj
+0 -18 Td
+72 618 Td
+(Closing Balance 6,800) Tj
+0 -18 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+944
+%%EOF
